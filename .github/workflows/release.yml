@@ -3,9 +3,6 @@ name: Release 1.0.0
 on:
   pull_request:
     branches: [main]
-    paths:
-      - .github/workflows/release.yml
-      - .github/release-notes/v1.0.0.md
   push:
     tags: [v1.0.0]
 
