@@ -340,7 +340,7 @@ def pack_linux_cli() -> int:
     package_name = "nestpack-linux-cli"
     sources = [ROOT / "使用说明.md", ROOT / "platforms" / "linux" / "launcher.sh"]
     sources.extend(ROOT / name for name in LEGAL_DOCUMENTS)
-    sources.extend(sorted((ROOT / "licenses").rglob("*.txt")))
+    sources.extend(sorted((ROOT / "licenses").glob("*.txt")))
     for package in ("core", "cli", "platforms"):
         sources.extend(
             path for path in sorted((ROOT / package).rglob("*.py"))
