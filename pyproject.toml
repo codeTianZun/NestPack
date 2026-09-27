@@ -1,0 +1,17 @@
+# NestPack 静态检查工具配置。
+# 源码入口为 python -m cli / python -m gui，分发构建由 scripts/build.py 管理。
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [".venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["core", "cli", "platforms"]
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true

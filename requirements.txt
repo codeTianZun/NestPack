@@ -1,0 +1,3 @@
+# 仅 Windows GUI 需要第三方 Python 运行依赖；CLI 使用标准库。
+PySide6>=6.11,<7; sys_platform == "win32"
+PySide6-Fluent-Widgets>=1.11,<2; sys_platform == "win32"

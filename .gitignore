@@ -1,0 +1,61 @@
+# Python 字节码与缓存
+__pycache__/
+*.py[codz]
+*$py.class
+
+# 虚拟环境
+.venv/
+venv/
+env/
+ENV/
+
+# 类型检查与静态检查缓存
+.mypy_cache/
+.ruff_cache/
+
+# 构建与打包产物
+build/
+dist/
+dependencies/
+*.egg-info/
+*.spec
+
+# IDE 与编辑器配置
+.idea/
+.vscode/
+.opencode/
+.zcode/
+.codex/
+.agents/
+*.swp
+*.swo
+*~
+
+# 操作系统生成文件
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# 日志和临时文件
+*.log
+*.tmp
+*.temp
+*.part
+~$*
+
+# 本地任务配置（可能包含明文密码）
+nestpack_config.json
+nestpack_config.local.json
+.private/
+
+# GUI 最近配置路径与输出目录记录
+nestpack_gui_state.json
+
+# 程序生成的压缩包与校验/恢复文件
+*.rar
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.tgz
+*.rev
