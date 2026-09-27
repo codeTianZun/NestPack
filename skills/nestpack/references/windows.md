@@ -5,7 +5,7 @@ CLI 入口参数与 JSON 输出契约（manifest schema、error_kind）跨平台
 
 ## CLI
 
-源码使用 `python -m cli`；打包后使用 `nestpack-cli.exe`。
+源码使用 `python -m cli`；发布程序使用 `nestpack-cli.exe`。
 双击或无参数启动进入数字菜单，选择任务后才检查来源；来源失效时可重新选择。
 参数调用直接执行，例如：
 
@@ -17,7 +17,7 @@ CLI 入口参数与 JSON 输出契约（manifest schema、error_kind）跨平台
 
 - 启动：`pwsh -File scripts\windows\start_gui.ps1`，或 `python -m gui`。
 - 主界面「解包…」按钮打开解包对话框（自动预置当前界面各层密码为候选）。
-- 打包版缺少 WinRAR 时提供官网安装指引，缺少 7-Zip 时询问是否下载；
+- 发布程序缺少 WinRAR 时提供官网安装指引，缺少 7-Zip 时询问是否下载；
   「⚙ 设定」提供「WinRAR 安装指引」和「安装/修复 7-Zip」。
   7-Zip 程序及许可材料保存在 exe 同目录的 `dependencies/7z/`。
 - 层级卡片密码栏「随机」按钮生成 16 位随机强密码；来源列表支持
@@ -33,7 +33,8 @@ CLI 入口参数与 JSON 输出契约（manifest schema、error_kind）跨平台
   会装 7zr.exe（仅 .7z）与支持 -tzip 的 7za.exe。
 - `show_winrar_gui: false` 时追加 `-ibck` 切后台。
 
-## 打包分发
+## 单文件构建
 
-Windows exe 打包：`scripts/windows/build_exe.ps1`（内部调 `scripts/build.py`），
-详见《打包说明.md》。
+Windows GUI 与 CLI 构建入口为 `scripts/windows/build_exe.ps1`（内部调
+`scripts/build.py`），分别生成 `NestPack.exe` 与 `nestpack-cli.exe`，详见
+《打包说明.md》。

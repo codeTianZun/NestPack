@@ -91,17 +91,21 @@ BOOLEAN_OPTIONS = {
 
 
 def create_parser() -> ArgumentParser:
+    command = (
+        Path(sys.executable).name if getattr(sys, "frozen", False)
+        else "python3 -m cli" if sys.platform == "linux" else "python -m cli"
+    )
     parser = ArgumentParser(
-        prog="nestpack-cli" if getattr(sys, "frozen", False) else "python -m cli",
+        prog=command,
         description="NestPack：数字菜单与参数调用共用的多层压缩 / 解包工具。",
         epilog=(
-            "无参数启动数字菜单。Linux 使用 python3。\n"
-            "直接压缩：python -m cli --source data --output out --layer rar --yes\n"
-            "混合嵌套：python -m cli --source data --output out --layer rar "
+            "无参数启动数字菜单。\n"
+            f"直接压缩：{command} --source data --output out --layer rar --yes\n"
+            f"混合嵌套：{command} --source data --output out --layer rar "
             "--layer-password inner --layer 7z --layer-password outer --yes\n"
             "AI 调用：加 --non-interactive --json；预览加 --dry-run。\n"
-            "配置任务：python -m cli --config task.json --yes --non-interactive --json\n"
-            "解包：python -m cli --unpack outer.rar --password-file passwords.txt"
+            f"配置任务：{command} --config task.json --yes --non-interactive --json\n"
+            f"解包：{command} --unpack outer.rar --password-file passwords.txt"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,

@@ -2,10 +2,11 @@
 
 ## CLI 入口
 
-- 推荐：`./platforms/linux/launcher.sh --config 路径`
-  （launcher 将项目根加入 Python 模块路径，保持调用目录与参数路径基准）。
-- 等价直调：`python3 -m cli ...`，参数与 JSON 输出契约见 `cli.md`
-  （解包见 `unpack.md`）。
+- 发布程序：`./nestpack-linux-cli --config 路径`，首次下载后执行
+  `chmod +x nestpack-linux-cli`，无需安装 Python。
+- 源码入口：`./platforms/linux/launcher.sh --config 路径` 或
+  `python3 -m cli ...`。launcher 将项目根加入 Python 模块路径，保持调用
+  目录与参数路径基准。参数与 JSON 输出契约见 `cli.md`，解包见 `unpack.md`。
 - 前置依赖：rarlab 官方 `rar` 命令（RAR 层用）；7z / zip 层另需
   7-Zip 官方 `7zz` 或 p7zip 的 `7z`（均支持 -tzip）。
   `python3 -m cli --install-tools` 显示 RAR 官网安装指引，并下载、校验
@@ -26,12 +27,11 @@
 ./scripts/linux/install_deps.sh --dev --upgrade  # 升级开发依赖
 ~~~
 
-运行 CLI 只需 Python 3.10+ 标准库。安装开发依赖时自动选择
+源码运行 CLI 只需 Python 3.10+ 标准库。安装开发依赖时自动选择
 `.venv/bin/python` 或回退系统 `python3`，未建 `.venv` 时会提示先建。Windows 对称入口为
 `scripts/windows/install_deps.ps1`。
 
-## 打包分发
+## 单文件构建
 
-Linux 精简包入口：`./scripts/linux/build_linux.sh`（内部调
-`scripts/build.py pack-linux`，与 Windows 端 `scripts/windows/build_exe.ps1`
-对称），产物为 `dist/nestpack-linux-cli.tar.gz`。
+Linux 构建入口为 `./scripts/linux/build_linux.sh`（内部调
+`scripts/build.py`），产物为 `dist/nestpack-linux-cli`。

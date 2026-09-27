@@ -32,15 +32,15 @@ Windows 图形界面、Windows 命令行和 Linux 命令行共用同一种 JSON 
 
 ## 🚀 快速开始
 
-### 使用打包版
+### 使用发布程序
 
 | 系统 | 入口 | 操作 |
 |---|---|---|
 | Windows 图形界面 | `NestPack.exe` | 双击启动，选择来源和输出目录，设置压缩层后点击「开始压缩」。 |
 | Windows 命令行 | `nestpack-cli.exe` | 双击进入数字菜单，按提示新建任务或解包。 |
-| Linux 命令行 | `./platforms/linux/launcher.sh` | 解压 Linux CLI 精简包后，在包目录运行脚本进入数字菜单。 |
+| Linux 命令行 | `./nestpack-linux-cli` | 下载可执行文件，赋予执行权限后运行，无需安装 Python。 |
 
-打包版的文件组成与构建方式见 [打包说明](打包说明.md)。Linux 精简包仍需 Python 3.10+。
+三个程序分别下载、直接运行。文件组成与构建方式见 [打包说明](打包说明.md)。
 
 ### 从源码运行
 
@@ -88,7 +88,7 @@ python -m cli --source ./data --output ./out --layer rar --layer-name inner --la
 python -m cli --unpack ./out/outer.7z
 ```
 
-Linux 将 `python` 换成 `python3`；Windows 打包版将 `python -m cli` 换成 `nestpack-cli.exe`。分卷归档请从第一卷开始解包，并将同一套分卷放在同一目录。更多参数、密码文件及 JSON 配置用法见 [使用说明](使用说明.md)。
+Linux 源码运行将 `python` 换成 `python3`；Windows 发布程序将 `python -m cli` 换成 `nestpack-cli.exe`。分卷归档请从第一卷开始解包，并将同一套分卷放在同一目录。更多参数、密码文件及 JSON 配置用法见 [使用说明](使用说明.md)。
 
 ## 🔐 密码与文件名
 
@@ -102,7 +102,7 @@ Linux 将 `python` 换成 `python3`；Windows 打包版将 `python -m cli` 换�
 | 文档 | 内容 |
 |---|---|
 | [使用说明](使用说明.md) | 图形界面、命令行、解包和 JSON 配置的完整说明 |
-| [打包说明](打包说明.md) | Windows exe、Linux CLI 精简包和源码运行方式 |
+| [打包说明](打包说明.md) | 三个单文件程序和源码运行方式 |
 | [开发文档](开发文档.md) | 项目架构与模块职责 |
 
 ## 许可与反馈
