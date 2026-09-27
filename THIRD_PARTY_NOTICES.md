@@ -16,12 +16,15 @@ Copyright (C) 2026 codeTianZun，许可全文见 [LICENSE](LICENSE)。
 | PyInstaller 引导程序 | PyInstaller 贡献者；GPL 加引导程序例外，部分文件为 Apache-2.0 | [许可及例外](https://pyinstaller.org/en/stable/license.html)、[源码](https://github.com/pyinstaller/pyinstaller) |
 
 Windows GUI 使用上述 GUI 依赖；CLI 源码只使用标准库。Windows 1.0.0
-发布包使用 PySide6 6.11.2。构建时会收集实际安装依赖附带的许可原文，
+GUI 程序使用 PySide6 6.11.2。构建时会收集实际安装依赖附带的许可原文，
 目录名标明依赖版本；项目源码的 `licenses/Qt-6.11.2/` 还保留 Qt Core、
 GUI、SVG 的开源许可、第三方版权声明及其引用的许可原文。上游来源见该
 目录的 `README.md`，Qt 的完整组件清单见
 [Qt 第三方许可](https://doc.qt.io/qt-6/licenses-used-in-qt.html)。
-LGPLv3 与 darkdetect 的许可原文也保存在源码的 `licenses/`。
+Linux CLI 单文件程序内嵌 Python 3.12.10 运行时与 PyInstaller 引导程序；
+对应许可及构建时收集的声明可通过 `--license` 查看。Python 3.12.10 的
+许可原文见源码的 `licenses/Python-3.12.txt`。LGPLv3 与 darkdetect 的
+许可原文也保存在源码的 `licenses/`。
 
 ## 外部归档工具
 

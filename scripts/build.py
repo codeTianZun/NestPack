@@ -1,25 +1,23 @@
-r"""构建 NestPack 的 Windows GUI/CLI exe 与 Linux CLI 精简包。
+r"""构建 NestPack 的 Windows GUI/CLI exe 与 Linux CLI 可执行文件。
 
-Windows exe 仅在 Windows 构建，pack-linux 可在 Windows 或 Linux 构建。
+各平台使用本机 PyInstaller 构建单文件程序。
 外层 PowerShell / Bash 脚本只负责选择 Python 解释器并转交参数。
 
 用法（在项目根目录执行）：
     python scripts\build.py              # 构建 Windows exe
     python scripts\build.py --yes        # 自动结束占用进程，不询问
     python scripts\build.py --no-kill    # 检测到占用进程直接失败退出
-    python3 scripts/build.py pack-linux  # 打包 Linux CLI（tar.gz）
+    python3 scripts/build.py             # 构建 Linux CLI 可执行文件
 """
 
 from __future__ import annotations
 
 import argparse
-import io
 import os
 import shutil
 import struct
 import subprocess
 import sys
-import tarfile
 from importlib import metadata
 from pathlib import Path
 
@@ -257,7 +255,7 @@ def generate_icon() -> Path:
 
 
 def collect_licenses() -> None:
-    """将项目与实际安装依赖的许可原文放在 exe 同目录。"""
+    """收集项目与当前平台构建依赖的许可原文。"""
     destination = ROOT / "dist"
     destination.mkdir(exist_ok=True)
     for name in LEGAL_DOCUMENTS:
@@ -265,14 +263,19 @@ def collect_licenses() -> None:
     licenses = destination / "licenses"
     if licenses.exists():
         shutil.rmtree(licenses)
-    shutil.copytree(ROOT / "licenses", licenses)
-    names = [
-        "PySide6", "PySide6-Essentials", "PySide6-Addons", "shiboken6",
-        "PySide6-Fluent-Widgets", "PySideSix-Frameless-Window", "darkdetect",
-        "pywin32", "pyinstaller",
-    ]
-    if sys.version_info < (3, 11):
-        names.append("tomli")
+    if sys.platform == "win32":
+        shutil.copytree(ROOT / "licenses", licenses)
+        names = [
+            "PySide6", "PySide6-Essentials", "PySide6-Addons", "shiboken6",
+            "PySide6-Fluent-Widgets", "PySideSix-Frameless-Window", "darkdetect",
+            "pywin32", "pyinstaller",
+        ]
+        if sys.version_info < (3, 11):
+            names.append("tomli")
+    else:
+        licenses.mkdir()
+        shutil.copyfile(ROOT / "licenses" / "Python-3.12.txt", licenses / "Python-3.12.txt")
+        names = ["pyinstaller"]
     for name in names:
         distribution = metadata.distribution(name)
         for relative in distribution.files or ():
@@ -288,7 +291,9 @@ def collect_licenses() -> None:
                 ))
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(source, target)
-    shutil.copyfile(Path(sys.base_prefix) / "LICENSE.txt", licenses / "Python.txt")
+    python_license = Path(sys.base_prefix) / "LICENSE.txt"
+    if python_license.is_file():
+        shutil.copyfile(python_license, licenses / "Python.txt")
 
 
 def write_spec(name: str, entry: str, mode: str) -> Path:
@@ -335,45 +340,27 @@ def run_pyinstaller(name: str, entry: str, mode: str) -> None:
         sys.exit(f"Failed building {name} (return code {result.returncode}).")
 
 
-def pack_linux_cli() -> int:
-    """按文件白名单打包 Linux CLI 源码、启动脚本、使用说明与许可。"""
-    package_name = "nestpack-linux-cli"
-    sources = [ROOT / "使用说明.md", ROOT / "platforms" / "linux" / "launcher.sh"]
-    sources.extend(ROOT / name for name in LEGAL_DOCUMENTS)
-    sources.extend(sorted((ROOT / "licenses").glob("*.txt")))
-    for package in ("core", "cli", "platforms"):
-        sources.extend(
-            path for path in sorted((ROOT / package).rglob("*.py"))
-            if not {"__pycache__", "win32"}.intersection(path.relative_to(ROOT).parts)
-            and not path.is_symlink()
-        )
-
-    tarball = ROOT / "dist" / f"{package_name}.tar.gz"
-    tarball.parent.mkdir(parents=True, exist_ok=True)
-    with tarfile.open(tarball, "w:gz") as archive:
-        for source in sources:
-            name = f"{package_name}/{source.relative_to(ROOT).as_posix()}"
-            member = archive.gettarinfo(str(source), arcname=name)
-            member.mode = 0o755 if source.name == "launcher.sh" else 0o644
-            member.uid = member.gid = 0
-            member.uname = member.gname = ""
-            content = source.read_bytes()
-            if source.name == "launcher.sh":
-                content = content.replace(b"\r\n", b"\n")
-            member.size = len(content)
-            archive.addfile(member, io.BytesIO(content))
-
-    print(f"已生成 {tarball}")
-    print("解压后执行: ./platforms/linux/launcher.sh（数字菜单），参数用法见 --help")
-    return 0
+def build_linux_cli() -> None:
+    """用 PyInstaller 构建自带 Python 运行时的 Linux CLI。"""
+    env = os.environ.copy()
+    env["PYINSTALLER_CONFIG_DIR"] = str(CACHE_DIR)
+    command = [
+        sys.executable, "-m", "PyInstaller", "--noconfirm", "--onefile", "--console",
+        "--name", "nestpack-linux-cli", "--distpath", str(ROOT / "dist"),
+        "--workpath", str(ROOT / "build" / "linux"),
+        "--specpath", str(ROOT / "build"), "--paths", str(ROOT),
+    ]
+    for document in LEGAL_DOCUMENTS:
+        command.extend(("--add-data", f"{ROOT / 'dist' / document}:."))
+    command.extend(("--add-data", f"{ROOT / 'dist' / 'licenses'}:licenses"))
+    command.append(str(ROOT / "cli" / "__main__.py"))
+    result = subprocess.run(command, cwd=ROOT, env=env)
+    if result.returncode != 0:
+        sys.exit(f"Failed building nestpack-linux-cli (return code {result.returncode}).")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="构建 Windows GUI/CLI exe 或 Linux CLI 精简包。")
-    parser.add_argument(
-        "command", nargs="?", choices=("pack-linux",), default=None,
-        help="pack-linux 打包 Linux CLI 精简包；缺省构建 Windows exe",
-    )
+    parser = argparse.ArgumentParser(description="构建 Windows GUI/CLI 或 Linux CLI 单文件程序。")
     parser.add_argument(
         "--yes", action="store_true",
         help="terminate running executables without asking",
@@ -386,12 +373,7 @@ def main() -> int:
 
     if sys.platform not in ("win32", "linux"):
         parser.error("NestPack 仅支持 Windows 与 Linux。")
-    if args.command == "pack-linux":
-        return pack_linux_cli()
-    if sys.platform != "win32":
-        parser.error("Windows exe 必须在 Windows 构建；Linux 请使用 pack-linux。")
-
-    if not (ROOT / ".venv" / "Scripts" / "python.exe").exists():
+    if sys.platform == "win32" and not (ROOT / ".venv" / "Scripts" / "python.exe").exists():
         print("WARNING: .venv not found; using current interpreter. "
               "Consider creating a virtual environment first.")
     try:
@@ -403,8 +385,14 @@ def main() -> int:
             check=True,
         )
 
-    ensure_unlocked(args.no_kill, args.yes)
+    if sys.platform == "win32":
+        ensure_unlocked(args.no_kill, args.yes)
     collect_licenses()
+
+    if sys.platform == "linux":
+        build_linux_cli()
+        print(f"已生成 {ROOT / 'dist' / 'nestpack-linux-cli'}")
+        return 0
 
     icon_path = generate_icon()
     print(f"Generated icon: {icon_path}")
@@ -417,8 +405,7 @@ def main() -> int:
     print("\nBuild finished:")
     print(f"  {ROOT / 'dist' / TARGETS[0][0]}      GUI")
     print(f"  {ROOT / 'dist' / TARGETS[1][0]}  CLI")
-    print("Default config is created next to the exe; copy the dist folder "
-          "as a whole.")
+    print("Default config is created next to each exe.")
     return 0
 
 
