@@ -38,10 +38,10 @@ _ACCEPT_ARCHIVE = "选择压缩包"
 class _MixedSourceDialog(QFileDialog):
     """文件+文件夹混合多选的确认对话框。
 
-    原生 QFileDialog 的 Directory 模式在仅选中文件时会禁用确认按钮，
+    QFileDialog 的 Directory 模式在仅选中文件时会禁用确认按钮，
     确认时还会把选中的目录当作「打开/进入」处理；子类覆盖这两处行为：
     - 确认按钮始终保持可用，抵消内部对纯文件选中的禁用；
-    - accept 直接放行当前选中的文件/文件夹，不再执行目录跳转。
+    - accept 直接确认视图中选中的文件和文件夹。
     """
 
     def __init__(self, parent: QWidget, start_path: str, default_output: str) -> None:
@@ -68,7 +68,7 @@ class _MixedSourceDialog(QFileDialog):
         self._force_accept_enabled()
 
     def accept(self) -> None:
-        """确认当前选择：手动输入的路径交还原生逻辑，否则直接放行选中项。"""
+        """确认当前选择：手动输入的路径交给 QFileDialog，视图选中项直接确认。"""
         edit = self.findChild(QLineEdit, "fileNameEdit")
         if edit is not None and edit.isModified() and edit.text().strip():
             super().accept()

@@ -302,7 +302,7 @@ def _edit_tools(config: AppConfig) -> AppConfig:
 
 
 def edit_config(config: AppConfig) -> AppConfig:
-    """所有任务设置的数字编辑入口，可修正旧配置中的失效路径。"""
+    """所有任务设置的数字编辑入口，支持修正失效路径。"""
     while True:
         print_task_settings(config)
         choice = ask_menu(

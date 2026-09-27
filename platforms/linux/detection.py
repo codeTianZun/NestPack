@@ -21,7 +21,7 @@ def find_tool(kind: str = "rar") -> Path | None:
     # kind 按格式名传入，非 rar（7z / zip）一律视为 7z 家族工具。
     names = RAR_TOOL_NAMES if kind == FORMAT_RAR else SEVENZIP_TOOL_NAMES
 
-    # 程序同目录 dependencies（内置安装入口的落盘位置）最优先。
+    # 优先查找程序同目录的 dependencies。
     for directory in tool_directory_candidates(kind):
         for name in names:
             candidate = directory / name

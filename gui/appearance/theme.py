@@ -5,18 +5,16 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon
 from PySide6.QtWidgets import QApplication, QGraphicsDropShadowEffect, QWidget
 from qfluentwidgets import Theme, setCustomStyleSheet, setTheme, setThemeColor
 
-from gui.appearance.mascot import MascotState, render_mascot
+from gui.appearance.logo import APP_ICON_PATH
 
 APP_NAME = "NestPack"
 FONT_FAMILY = "Microsoft YaHei UI"
 
-# 设计 token：间距与圆角梯度，QSS 与部件 margins/spacing 共用同一组数值，
-# 避免各处随手写零散数字导致排版失序。
+# 界面布局的间距与圆角尺寸。
 SPACE_XS = 4
 SPACE_SM = 8
 SPACE_MD = 12
@@ -122,14 +120,5 @@ def apply_accent_glow(widget: QWidget) -> None:
 
 
 def create_app_icon() -> QIcon:
-    """绘制吉祥物头像图标，无需外部资源。"""
-    pixmap = QPixmap(256, 256)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(QColor("#A5D3F4"))
-    painter.drawRoundedRect(12, 12, 232, 232, 52, 52)
-    painter.drawPixmap(0, 0, render_mascot(MascotState.IDLE, 256))
-    painter.end()
-    return QIcon(pixmap)
+    """加载与 Windows exe 同源的应用图标。"""
+    return QIcon(str(APP_ICON_PATH))

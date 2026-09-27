@@ -32,7 +32,7 @@ from core.legal import LEGAL_DOCUMENTS  # noqa: E402
 
 # PyInstaller 分析缓存放项目内的 build 目录（已被 gitignore）。
 CACHE_DIR = ROOT / "build" / "pyinstaller-cache"
-# 打包时程序化生成、供 EXE 使用的图标。
+# 打包时从应用图标生成多尺寸 EXE 图标。
 ICON_PATH = ROOT / "build" / "app.ico"
 
 # (产物文件名, PyInstaller --name, 入口脚本, 窗口模式开关)。
@@ -190,19 +190,23 @@ def ensure_unlocked(no_kill: bool, assume_yes: bool) -> None:
 
 
 def generate_icon() -> Path:
-    """用吉祥物渲染生成多尺寸 ICO 图标（16/24/32/48/64/128/256）。
+    """从应用图像生成多尺寸 ICO 图标（16/24/32/48/64/128/256）。
 
-    项目不携带图片资源，图标与程序内吉祥物同源，均由 QPainter 程序化绘制。
     输出 ICO 内嵌 32bpp BMP 条目，兼容 Windows 资源管理器与任务栏。
     """
-    from PySide6.QtGui import QGuiApplication, QImage, Qt
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QGuiApplication, QImage, QPixmap
 
-    from gui.appearance.mascot import MascotState, render_mascot
+    from gui.appearance.logo import APP_ICON_PATH
 
     QGuiApplication.instance() or QGuiApplication([])
 
     sizes = (16, 24, 32, 48, 64, 128, 256)
-    base = render_mascot(MascotState.IDLE, size=256)
+    base = QPixmap(str(APP_ICON_PATH)).scaled(
+        256, 256,
+        Qt.AspectRatioMode.KeepAspectRatio,
+        Qt.TransformationMode.SmoothTransformation,
+    )
 
     entries: list[tuple[bytes, int]] = []  # (ICONDIRENTRY, offset)
     payload = bytearray()
@@ -293,14 +297,18 @@ def write_spec(name: str, entry: str, mode: str) -> Path:
     spec_path.parent.mkdir(parents=True, exist_ok=True)
     entry_rel = os.path.relpath((ROOT / entry).resolve(), spec_path.parent).replace("\\", "/")
     icon_rel = os.path.relpath(ICON_PATH, spec_path.parent).replace("\\", "/")
+    data = [(str(ROOT / "dist" / document), ".") for document in LEGAL_DOCUMENTS]
+    data.append((str(ROOT / "dist" / "licenses"), "licenses"))
+    if mode == "--windowed":
+        data.extend(
+            (str(path), "gui/appearance/assets")
+            for path in sorted((ROOT / "gui" / "appearance" / "assets").glob("*.png"))
+        )
     content = (
         SPEC_TEMPLATE
         .replace("@ENTRY@", entry_rel)
         .replace("@ROOT@", repr(str(ROOT)))
-        .replace("@DATA@", repr(
-            [(str(ROOT / "dist" / document), ".") for document in LEGAL_DOCUMENTS]
-            + [(str(ROOT / "dist" / "licenses"), "licenses")]
-        ))
+        .replace("@DATA@", repr(data))
         .replace("@NAME@", name)
         .replace("@ICON@", icon_rel)
         .replace("@CONSOLE@", str(mode != "--windowed"))

@@ -92,7 +92,7 @@ def find_sevenzip_from_registry(names: tuple[str, ...]) -> Path | None:
 
 def _find_tool(kind: str, names: tuple[str, ...]) -> Path | None:
     """按目录优先级查找给定候选程序。"""
-    # 程序同目录 dependencies（内置安装入口的落盘位置）最优先。
+    # 优先查找程序同目录的 dependencies。
     for directory in tool_directory_candidates(kind):
         for name in names:
             candidate = directory / name

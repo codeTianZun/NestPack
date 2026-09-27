@@ -12,11 +12,7 @@ WORKING = "(*≧ω≦)"
 SUCCESS = "(≧▽≦)"
 FAIL = "(；一_一)"
 
-# 启动问候与完成收尾。
-GREETING = "(*^▽^*)"
-FAREWELL = "(≧▽≦)"
-
-SIGNATURE = "由 NestPack 小助手精心打包 · (＾ω＾)"
+SIGNATURE = "NestPack · 多层嵌套压缩"
 
 KAOMOJI = {
     "idle": IDLE,

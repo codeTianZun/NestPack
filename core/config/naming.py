@@ -14,11 +14,7 @@ RANDOM_NAME_CHARS = string.ascii_lowercase + string.digits
 
 
 def randomized_layer_names(config: AppConfig) -> AppConfig:
-    """把各层文件名替换为 8 位随机名。
-
-    randomize_layer_names 开启时由 CLI 与 GUI 在开始压缩前调用，
-    随机名会随配置写回磁盘。
-    """
+    """为各层生成 8 位随机主名并附上格式后缀，返回更新后的配置。"""
     used_names = {
         Path(path).name.casefold() for path in config.effective_source_paths()
     }

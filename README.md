@@ -1,91 +1,110 @@
-# NestPack 1.0.0
+<p align="center">
+  <img src="gui/appearance/assets/idle.png" width="180" alt="NestPack 项目 Logo">
+</p>
 
-多层嵌套压缩工具：按层调用 WinRAR / rarlab `rar` 或 7-Zip 命令行，支持 RAR、
-7z 与 ZIP 混合嵌套；每层可独立加密、分卷，RAR 层还支持恢复记录，并支持随机
-填充、源文件名别名化、最外层扩展名调整等隐私与归档选项，可减少归档与传输
-过程中不必要的元数据暴露，以及重复归档之间的直接关联。仅提供 Linux CLI、
-Windows CLI 与 Windows PySide6 GUI，共用同一份 JSON 配置与同一套 `core/` 逻辑；另有一键解包
-（`--unpack`）反向逐层释放原始文件。
+<h1 align="center">NestPack</h1>
 
-请仅处理有权使用的文件，并遵守存储服务条款、适用法律与组织的安全规范。
+**RAR、7z、ZIP 自由组合，一次打包，逐层解包。**
 
-## 快速开始
+![Version](https://img.shields.io/badge/version-1.0.0-4C6EF5)
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows-GUI%20%2B%20CLI-0078D4?logo=windows&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-CLI-FCC624?logo=linux&logoColor=black)
+![PySide6](https://img.shields.io/badge/GUI-PySide6-41CD52?logo=qt&logoColor=white)
+![Formats](https://img.shields.io/badge/formats-RAR%20%7C%207z%20%7C%20ZIP-7950F2)
+[![License](https://img.shields.io/badge/license-GPL--3.0--only-2F9E44)](LICENSE)
 
-支持 Python 3.10+。CLI 仅使用 Python 标准库；第三方归档工具按需安装。
-先获取源码并进入项目目录：
+NestPack 可以把文件或文件夹依次包进 RAR、7z、ZIP 压缩层中，格式可以混用。
+每层都能单独设置密码、压缩级别和分卷大小；收到最外层压缩包后，也能逐层解包。
+Windows 图形界面、Windows 命令行和 Linux 命令行共用同一种 JSON 任务配置。
 
-~~~bash
+## ✨ 主要功能
+
+| | 你可以做什么 |
+|---|---|
+| 🧱 多层打包 | 自由安排 RAR、7z、ZIP 的顺序，为每层设置文件名、密码、压缩级别和分卷大小。 |
+| 🔓 逐层解包 | 选择最外层文件，自动识别每层格式；支持混合格式、分卷和调整过扩展名的归档。 |
+| 🖥️ 多种入口 | Windows 使用图形界面或命令行，Linux 使用命令行；命令行还提供数字菜单。 |
+| 🧩 复用任务 | 将设置保存为 JSON，图形界面和命令行都能读取。 |
+| 🛠️ 更多选项 | RAR 层可添加恢复记录；还可选择源名称别名、随机填充、最外层扩展名调整和逐层自检。 |
+
+例如，`资料/ → 内层.rar → 中层.7z → 外层.zip`。解包时从最外层开始，NestPack 按相反顺序释放原始内容。
+
+## 🚀 快速开始
+
+### 使用打包版
+
+| 系统 | 入口 | 操作 |
+|---|---|---|
+| Windows 图形界面 | `NestPack.exe` | 双击启动，选择来源和输出目录，设置压缩层后点击「开始压缩」。 |
+| Windows 命令行 | `nestpack-cli.exe` | 双击进入数字菜单，按提示新建任务或解包。 |
+| Linux 命令行 | `./platforms/linux/launcher.sh` | 解压 Linux CLI 精简包后，在包目录运行脚本进入数字菜单。 |
+
+打包版的文件组成与构建方式见 [打包说明](打包说明.md)。Linux 精简包仍需 Python 3.10+。
+
+### 从源码运行
+
+源码运行需要 Python 3.10+。先获取项目：
+
+```bash
 git clone https://github.com/codeTianZun/NestPack.git
 cd NestPack
-~~~
+```
 
-Windows（GUI）：
+**Windows 图形界面**（PowerShell）：
 
-~~~powershell
+```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r .\requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m gui
-~~~
+```
 
-也可改用 `scripts\windows\install_deps.ps1` 一键装依赖（含 `.venv` 检测
-与 `-Dev` 静态检查依赖开关）。Linux CLI 无需安装 Python 运行依赖；
-需要静态检查工具时可用 `./scripts/linux/install_deps.sh --dev`。
+**Windows / Linux 命令行**（无需安装第三方 Python 运行依赖）：
 
-Windows / Linux（CLI；Linux 将 `python` 换为 `python3`）：
+```powershell
+python -m cli
+```
 
-~~~bash
-python -m cli                             # 数字菜单：新建、解包、编辑配置、工具安装
-python -m cli --source data --output out --layer rar --yes --non-interactive --json
-python -m cli --config task.json --dry-run --json
-python -m cli --config task.json --yes --non-interactive --json
-python -m cli --unpack outer.bin --password-file pw.txt --non-interactive --json
+Linux 将命令中的 `python` 换成 `python3`。启动后可用数字菜单创建任务、解包、编辑配置或检测工具。
+
+### 准备归档工具
+
+NestPack 按所选格式调用外部工具：RAR 层需要 WinRAR（Windows）或 RARLAB `rar`（Linux）；7z 和 ZIP 层需要 7-Zip。图形界面的「⚙ 设定」提供工具检测、RAR 安装指引及 7-Zip 安装入口。命令行可运行：
+
+```bash
 python -m cli --install-tools
-~~~
+```
 
-Windows 打包版双击 `nestpack-cli.exe` 即打开菜单。已有配置的来源失效时，
-可在菜单中重新选择路径。完整逐层设置同时支持数字交互和直接参数；新任务
-按需保存，参数调用使用 `--save-config` 显式保存。所有调用方式见
-[使用说明.md](使用说明.md)。
+该命令显示 RARLAB 官网安装指引，并下载、校验和安装 7-Zip；Linux 使用 `python3 -m cli --install-tools`。RAR / WinRAR 由用户自行安装并遵守 [RARLAB 许可条款](https://www.rarlab.com/license.htm)。
 
-`--install-tools rar` 显示 RARLAB 官网安装指引；`--install-tools 7z`
-从官方下载安装 7-Zip 并保留许可材料；省略工具名时执行这两项。
-RAR / WinRAR 由用户自行安装和授权，见 [RARLAB 许可条款](https://www.rarlab.com/license.htm)。
+## 📖 压缩与解包
 
-退出码约定：0 成功，1 配置/运行错误，2 用法错误，130 用户中止。
-智能体使用 `--non-interactive --json` 获得无交互调用与结构化结果；
-`--yes` 跳过确认。无终端且无参数启动时显示帮助。
+图形界面中，选择来源和输出目录，按从内到外的顺序添加压缩层，然后开始压缩。完成后可查看产物与密码清单；点击「解包…」即可选择最外层文件进行解包。
 
-## 文档索引
+命令行除了数字菜单，也支持直接给出任务参数。下面创建一个 RAR 内层和 7z 外层，再解包外层文件：
+
+```bash
+python -m cli --source ./data --output ./out --layer rar --layer-name inner --layer 7z --layer-name outer --yes
+python -m cli --unpack ./out/outer.7z
+```
+
+Linux 将 `python` 换成 `python3`；Windows 打包版将 `python -m cli` 换成 `nestpack-cli.exe`。分卷归档请从第一卷开始解包，并将同一套分卷放在同一目录。更多参数、密码文件及 JSON 配置用法见 [使用说明](使用说明.md)。
+
+## 🔐 密码与文件名
+
+- JSON 配置默认会保存明文密码。需要避免密码写入配置时，可在图形界面关闭「在 JSON 中保存密码」，或在配置中设置 `persist_passwords=false`；请妥善保存完成时显示的密码清单。
+- ZIP 层不支持文件名加密，归档内文件名仍可见。需要隐藏文件名时，请使用支持文件名加密的 RAR 或 7z 层。
+- 最外层扩展名调整只改变文件名，不改变归档内容；NestPack 解包时按内容识别格式。
+- 请只处理有权使用的文件，并遵守存储服务条款、适用法律与组织的安全规范。
+
+## 📚 更多文档
 
 | 文档 | 内容 |
 |---|---|
-| [使用说明.md](使用说明.md) | CLI/GUI 用法、JSON 配置字段语义、安全注意事项 |
-| [打包说明.md](打包说明.md) | 源码 / Windows exe / Linux 精简包三种分发形态 |
-| [开发文档.md](开发文档.md) | 现行架构（core/platforms/cli/gui 分层）、模块职责、设计决策 |
-| [skills/nestpack/](skills/nestpack/) | CLI 使用参考：Windows/Linux、配置与解包 |
-
-## 目录结构
-
-~~~text
-core/        平台无关核心引擎（仅 Python 标准库）
-cli/         命令行入口（python -m cli）
-gui/         PySide6 图形界面（仅 Windows 桌面）
-platforms/   平台差异、工具检测、RAR 安装指引与 7-Zip 下载/校验/安装
-skills/      CLI 使用参考（导航 SKILL.md + references/）
-scripts/     Windows exe / Linux CLI 打包与本地依赖安装脚本
-~~~
-
-工程配置在 `pyproject.toml`（ruff / mypy），CI 见
-`.github/workflows/ci.yml`（仅静态检查）。本项目不编写或运行自动化测试。
+| [使用说明](使用说明.md) | 图形界面、命令行、解包和 JSON 配置的完整说明 |
+| [打包说明](打包说明.md) | Windows exe、Linux CLI 精简包和源码运行方式 |
+| [开发文档](开发文档.md) | 项目架构与模块职责 |
 
 ## 许可与反馈
 
-Copyright (C) 2026 codeTianZun。项目代码、文档和程序化图形采用
-[GPL-3.0-only](LICENSE)，允许按许可条款使用、修改和再分发，不提供担保。
-第三方版权与许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-CLI 使用 `--license`、GUI 点击「关于/许可」可查看许可。
-
-问题和建议统一通过 [GitHub Issues](https://github.com/codeTianZun/NestPack/issues)
-反馈，注明版本、系统与复现步骤。提交贡献时须有权按项目许可提供相应内容。
-Issue、提交和附件中请使用脱敏示例；任务配置、密码清单与私人资料放在仓库外
-或已忽略的 `.private/`，自行命名的配置文件需自行检查是否被 Git 跟踪。
+项目代码和文档采用 [GPL-3.0-only](LICENSE)，第三方版权与许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。问题和建议请提交至 [GitHub Issues](https://github.com/codeTianZun/NestPack/issues)，并注明版本、系统和复现步骤。

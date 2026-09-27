@@ -1,8 +1,8 @@
 """外部压缩工具目录约定。
 
-下载的 rar / 7z 命令行程序统一放在脚本或打包后可执行文件同目录的
-``dependencies`` 下，各平台检测链把它作为优先查找位置。目录布局为
-``dependencies/{rar,7z}/``。
+脚本或打包后可执行文件同目录的 ``dependencies/{rar,7z}/`` 是各平台
+工具检测链的优先查找位置。7-Zip 安装入口把下载的工具放在
+``dependencies/7z/``。
 """
 
 from __future__ import annotations

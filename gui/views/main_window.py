@@ -12,7 +12,7 @@ from qfluentwidgets import FluentIcon, PushButton, ToggleToolButton
 from core.filesystem import normalize_user_path
 from core.models import COMPRESS_MODE_SEPARATE
 from core.moji import KAOMOJI
-from gui.appearance.mascot import MascotState, render_mascot
+from gui.appearance.logo import LogoState, render_logo
 from gui.appearance.theme import (
     APP_NAME,
     FONT_FAMILY,
@@ -31,7 +31,7 @@ from gui.views.settings_dialog import SettingsDialog
 from gui.views.side_panel import SidePanel
 from gui.views.source_panel import SourcePanel
 
-MASCOT_SIZE = 86
+LOGO_SIZE = 86
 HEADER_BUTTON_HEIGHT = 34
 
 
@@ -90,15 +90,17 @@ class MainWindow(QMainWindow):
         root_layout.addLayout(content, 1)
 
     def _build_header(self) -> QHBoxLayout:
-        """顶栏：吉祥物、标题与配置载入/另存/设定按钮。"""
+        """顶栏：项目 Logo、标题与配置载入/另存/设定按钮。"""
         header = QHBoxLayout()
         header.setSpacing(SPACE_MD)
-        self.mascot_label = QLabel()
-        self.mascot_label.setFixedSize(MASCOT_SIZE, MASCOT_SIZE)
-        self.mascot_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.mascot_label.setPixmap(render_mascot(MascotState.IDLE, MASCOT_SIZE))
-        self.mascot_label.setToolTip("NestPack 小助手")
-        header.addWidget(self.mascot_label)
+        self.logo_label = QLabel()
+        self.logo_label.setFixedSize(LOGO_SIZE, LOGO_SIZE)
+        self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.logo_label.setPixmap(render_logo(
+            LogoState.IDLE, LOGO_SIZE, device_pixel_ratio=self.devicePixelRatioF()
+        ))
+        self.logo_label.setToolTip("NestPack 项目 Logo")
+        header.addWidget(self.logo_label)
 
         title_box = QVBoxLayout()
         title_box.setSpacing(SPACE_XS)
@@ -107,7 +109,7 @@ class MainWindow(QMainWindow):
         title_font = QFont(FONT_FAMILY, 22, QFont.Weight.Bold)
         title_font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 1.6)
         title.setFont(title_font)
-        subtitle = QLabel("NestPack 小助手，帮你把行李一层层打包好。")
+        subtitle = QLabel("RAR、7z、ZIP 自由组合，逐层打包与解包。")
         subtitle.setObjectName("muted")
         subtitle.setWordWrap(True)
         title_box.addWidget(title)
@@ -195,11 +197,13 @@ class MainWindow(QMainWindow):
         self.side.set_installing(active)
         self.settings.runtime.set_installing(active)
 
-    def set_status(self, message: str, state: MascotState | None = None) -> None:
-        """更新状态栏文字；带情绪状态时同步切换吉祥物与颜文字。"""
+    def set_status(self, message: str, state: LogoState | None = None) -> None:
+        """更新状态栏文字；有任务状态时同步切换 Logo 图片与颜文字。"""
         if state is not None:
             message = f"{message} {KAOMOJI[state.value]}"
-            self.mascot_label.setPixmap(render_mascot(state, MASCOT_SIZE))
+            self.logo_label.setPixmap(render_logo(
+                state, LOGO_SIZE, device_pixel_ratio=self.devicePixelRatioF()
+            ))
         self.side.set_status(message)
 
     def open_output_directory(self) -> None:

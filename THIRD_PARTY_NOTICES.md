@@ -1,6 +1,6 @@
 # 第三方许可
 
-NestPack 的代码、文档和程序化图形采用 GPL-3.0-only：
+NestPack 的代码和文档采用 GPL-3.0-only：
 Copyright (C) 2026 codeTianZun，许可全文见 [LICENSE](LICENSE)。
 第三方代码与资源保留各自版权，适用下列许可。
 

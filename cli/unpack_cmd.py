@@ -20,7 +20,6 @@ from cli.prompts import read_password
 from core.config import load_config
 from core.filesystem import normalize_user_path
 from core.models import DEFAULT_CONFIG_PATH, FORMAT_7Z, ConfigError
-from core.moji import FAREWELL
 from core.result_summary import MANIFEST_SCHEMA_VERSION
 from core.unpack import unpack_archive
 from platforms import resolve_optional_tool
@@ -160,5 +159,4 @@ def run_unpack(arguments: argparse.Namespace) -> int:
     print(f"\n解包完成，共恢复 {len(entries)} 个条目：")
     for entry in entries:
         print(f"  {entry}")
-    print(f"辛苦啦，小助手先告退啦 {FAREWELL}")
     return 0

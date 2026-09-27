@@ -137,7 +137,7 @@ def read_password(prompt: str, *, output_stream: TextIO | None = None) -> str:
     getpass 在 POSIX 上打开 /dev/tty、Windows 上读控制台输入缓冲，
     都无视 stdin 重定向：有终端但无人输入时会永久阻塞。因此仅在
     stdin 是真实终端时才用 getpass 隐藏回显，否则从 stdin 读一行，
-    输入流结束抛 EOFError，由调用方按"放弃"处理。
+    输入流结束抛 EOFError，由调用方处理。
     """
     stream = output_stream or sys.stdout
     if stdin_is_interactive():
@@ -191,7 +191,7 @@ def ask_archive_name(
     forbidden_names: set[str],
     archive_format: str = FORMAT_RAR,
 ) -> str:
-    """读取一层的文件名，并阻止覆盖原始输入或其他层。"""
+    """读取并校验一层的文件名，检查与已收集的层名是否重复。"""
     while True:
         raw_name = input(f"第 {layer_number} 层压缩文件名（直接回车使用 {default_name}）：").strip()
         try:
@@ -200,7 +200,7 @@ def ask_archive_name(
             print(f"文件名无效：{error}")
             continue
         if archive_name.casefold() in forbidden_names:
-            print("该文件名会覆盖原始输入或其他压缩层，请换一个名称。")
+            print("该文件名与其他压缩层重复，请换一个名称。")
             continue
         return archive_name
 

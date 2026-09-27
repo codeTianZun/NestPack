@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QApplication, QFileDialog
 from core.compression import CompressionResult, build_compression_plan
 from core.logging_utils import setup_logging
 from core.models import ConfigError
-from gui.appearance.mascot import MascotState
+from gui.appearance.logo import LogoState
 from gui.appearance.theme import APP_NAME, create_app_icon, init_fluent_theme
 from gui.config.binding import ConfigBinding
 from gui.config.session import ConfigSession
@@ -152,24 +152,24 @@ class GuiApplication(QObject):
             show_info(self.window, "启动前提示", warning)
         self.window.side.set_progress(0, plan.total_layers)
         self.window.side.clear_log()
-        self.window.set_status("正在准备打包任务…", MascotState.WORKING)
+        self.window.set_status("正在准备打包任务…", LogoState.WORKING)
         self.compression.start(plan)
 
     def cancel_compression(self) -> None:
         if self.compression.active:
             self.window.side.show_cancelling()
-            self.window.set_status("正在取消…", MascotState.WORKING)
+            self.window.set_status("正在取消…", LogoState.WORKING)
             self.compression.cancel()
 
     @Slot(int, int, str)
     def _update_progress(self, value: int, total: int, message: str) -> None:
         self.window.side.set_progress(value, total)
-        self.window.set_status(message, MascotState.WORKING)
+        self.window.set_status(message, LogoState.WORKING)
 
     @Slot(object)
     def _compression_succeeded(self, result: CompressionResult) -> None:
         self.window.side.set_progress(result.plan.total_layers, result.plan.total_layers)
-        self.window.set_status("全部打包完成！", MascotState.SUCCESS)
+        self.window.set_status("全部打包完成！", LogoState.SUCCESS)
         show_compression_result(
             self.window, result,
             lambda: self.window.set_status("密码清单已复制到剪贴板"),
@@ -177,12 +177,12 @@ class GuiApplication(QObject):
 
     @Slot(str)
     def _compression_failed(self, message: str) -> None:
-        self.window.set_status("打包失败了…请检查设置后重试", MascotState.FAIL)
+        self.window.set_status("打包失败了…请检查设置后重试", LogoState.FAIL)
         show_error(self.window, "压缩失败", message)
 
     @Slot()
     def _compression_cancelled(self) -> None:
-        self.window.set_status("已取消", MascotState.IDLE)
+        self.window.set_status("已取消", LogoState.IDLE)
 
     @Slot()
     def _compression_finished(self) -> None:
@@ -211,18 +211,18 @@ class GuiApplication(QObject):
         if self.tools.active:
             return
         self.window.side.clear_log()
-        self.window.set_status("正在下载安装压缩依赖…", MascotState.WORKING)
+        self.window.set_status("正在下载安装压缩依赖…", LogoState.WORKING)
         self.tools.start(tool)
 
     @Slot(object)
     def _tool_install_succeeded(self, _result: object) -> None:
         detected = self._detect_tools()
-        self.window.set_status("压缩依赖安装完成", MascotState.SUCCESS)
+        self.window.set_status("压缩依赖安装完成", LogoState.SUCCESS)
         show_installed_tools(self.window, *detected)
 
     @Slot(str)
     def _tool_install_failed(self, message: str) -> None:
-        self.window.set_status("依赖安装失败，请查看日志", MascotState.FAIL)
+        self.window.set_status("依赖安装失败，请查看日志", LogoState.FAIL)
         show_error(self.window, "依赖安装失败", message)
 
     def open_unpack_dialog(self) -> None:
@@ -258,7 +258,7 @@ class GuiApplication(QObject):
             if self.compression.active:
                 self._close_when_finished = True
                 self.compression.cancel()
-                self.window.set_status("正在取消并退出…", MascotState.WORKING)
+                self.window.set_status("正在取消并退出…", LogoState.WORKING)
                 event.ignore()
                 return
         self.config.flush()

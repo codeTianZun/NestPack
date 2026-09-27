@@ -58,11 +58,11 @@ class RarBackend:
         command = [
             str(tool),
             "a",
-            "-cfg-",  # 不读取用户的 WinRAR 全局配置，确保行为可预测。
-            "-ma5",  # 使用 RAR5 格式，恢复记录功能依赖 RAR 格式。
+            "-cfg-",  # 跳过归档工具的配置文件，使用本次任务参数。
+            "-ma5",  # 使用 RAR5 格式。
             f"-m{compression_level}",  # 0-5：仅存储到最高压缩。
-            "-ep1",  # 不保存输入项父目录的绝对路径。
-            "-y",  # 自动回答 WinRAR 自己的确认问题。
+            "-ep1",  # 从归档内路径中去掉基目录。
+            "-y",  # 自动回答归档工具的确认问题。
         ]
         if source.is_dir():
             command.append("-r")

@@ -13,7 +13,7 @@ from core.cancellation import CancelledError
 from core.compression import CompressionPlan
 from core.legal import LICENSE_SUMMARY
 from core.models import COMPRESS_MODE_SEPARATE, ConfigError
-from core.moji import GREETING, KAOMOJI
+from core.moji import KAOMOJI
 
 
 def print_json(payload: dict) -> None:
@@ -90,11 +90,9 @@ def print_config_summary(plan: CompressionPlan) -> None:
 
 
 def print_banner() -> None:
-    """启动时打印吉祥物 ASCII banner。"""
+    """启动时打印产品信息。"""
     print()
-    print("  /\\_/\\")
-    print(" ( o.o )   NestPack 多层嵌套压缩工具")
-    print(f"  > ^ <    by NestPack 小助手 {GREETING}")
+    print("NestPack 多层嵌套压缩工具")
     print(LICENSE_SUMMARY)
     print("完整许可与源码说明：--license")
     print()

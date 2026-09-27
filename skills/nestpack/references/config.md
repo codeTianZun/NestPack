@@ -81,8 +81,8 @@ zip 层时解析；7z 家族工具可用 7z.exe / 7za.exe / 7zr.exe / 7zz / 7z�
 顶层隐私与归档开关为布尔值（`disguise_extension` 为字符串）；`verify_after_compress`、
 `delete_inner_after_verify` 与 `persist_passwords` 缺省 true，其余缺省 false：
 
-- `add_padding`：每层加随机填充文件（大小 16KiB~1MiB 随机），为不同
-  归档任务生成不同的内容与体积特征，避免固定的命名或大小模式。
+- `add_padding`：每层加入 16KiB~1MiB 的随机填充文件，使每次归档的
+  内容与体积特征随之变化。
 - `randomize_layer_names`：开始压缩时生成 8 位随机文件名；CLI 显式保存配置时才落盘。
 - `hide_source_name`：第 1 层用随机别名打包（文件硬链接/文件夹复制），
   隐藏根条目原名；内部文件名不变。解包后根条目是别名，原名不可恢复。

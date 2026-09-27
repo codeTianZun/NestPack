@@ -30,8 +30,7 @@ def atomic_write_text(path: Path, content: str, *, encoding: str = "utf-8") -> N
         temporary_path.write_text(content, encoding=encoding)
         temporary_path.replace(path)
     except BaseException:
-        # 写入或替换失败时清理残留临时文件，避免堆积；unlink 自身
-        # 出错不再抛，优先让原始异常传播。
+        # 写入或替换失败时清理残留临时文件；清理错误不覆盖原始异常。
         try:
             temporary_path.unlink(missing_ok=True)
         except OSError:

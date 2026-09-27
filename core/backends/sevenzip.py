@@ -129,8 +129,7 @@ class SevenZipBackend:
         return f"{base}.{extension}.{number:03d}"
 
     def disguise_name(self, path: Path, extension: str) -> Path:
-        # 分卷 foo.7z.001 的卷号在末尾，改名时保留卷号、替换中间的
-        # .7z 标记，否则整套分卷会改成同一个名字。
+        # 分卷 foo.7z.001 改名时保留末尾卷号，将中间的 .7z 换成伪装扩展名。
         match = self.volume_name_pattern.fullmatch(path.name)
         if match is not None:
             return path.with_name(f"{match.group(1)}{extension}.{match.group(2)}")

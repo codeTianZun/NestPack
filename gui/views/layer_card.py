@@ -231,7 +231,7 @@ class LayerCard(QFrame):
         self.changed.emit()
 
     def _name_edited(self, _text: str) -> None:
-        """用户手动改过文件名后视为自定义名称，不再按来源模板替换。"""
+        """把用户编辑的层名标记为固定名称。"""
         self.name_template = None
 
     def _password_edited(self, _text: str) -> None:

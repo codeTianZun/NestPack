@@ -69,7 +69,7 @@ GUI/CLI + Linux CLI，共用 `core/` 引擎，版本 1.0.0）。智能体会话�
 | GUI 后台任务 / 线程状态与回收 | `gui/tasks/`、`gui/tasks/threading.py` |
 | GUI 工具路径 / 浏览与检测提示 / 安装动作 | `gui/views/runtime_panel.py` |
 | GUI 面板 / 对话框 / 字段读写 | `gui/views/` |
-| GUI 主题 / 文件选择器外观与中文文案 / 吉祥物 | `gui/appearance/` |
+| GUI 主题 / 文件选择器外观与中文文案 / 项目 Logo | `gui/appearance/` |
 | 构建（exe / pack-linux / 图标） | `scripts/build.py` |
 | RAR 官网安装指引 / 7-Zip 下载与许可保留 | `platforms/tool_installer.py`、`scripts/fetch_tools.py` |
 | Python 依赖一键安装 | `scripts/windows/install_deps.ps1` / `scripts/linux/install_deps.sh` |

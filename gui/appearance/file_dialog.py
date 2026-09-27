@@ -44,7 +44,7 @@ def _relabel_dialog(dialog: QFileDialog, accept_text: str) -> None:
     dialog.setLabelText(QFileDialog.DialogLabel.FileType, "文件类型")
     dialog.setLabelText(QFileDialog.DialogLabel.Accept, accept_text)
     dialog.setLabelText(QFileDialog.DialogLabel.Reject, "取消")
-    # [text=...] 属性选择器对 QPushButton 不生效，改用 objectName 触发主样式
+    # 通过 objectName 为确认按钮应用主样式。
     button_box = dialog.findChild(QDialogButtonBox, "buttonBox")
     if button_box is not None:
         accept_button = button_box.button(
