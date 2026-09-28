@@ -7,6 +7,7 @@ from pathlib import Path
 
 from core.backends import get_backend
 from core.models import AppConfig, LayerConfig
+from core.sfx import SfxPlan
 
 
 @dataclass(frozen=True)
@@ -18,6 +19,7 @@ class LayerPlan:
     destination: Path
     disguise_extension: str | None = None
     video: Path | None = None
+    sfx: SfxPlan | None = None
 
     def output_paths(self, volume_count: int = 1) -> tuple[Path, ...]:
         """按实际卷数生成产物路径；预览时用第一卷表达尚未确定大小的分卷套。"""
@@ -30,7 +32,10 @@ class LayerPlan:
             else [self.destination]
         )
         if self.disguise_extension is not None:
-            paths = [backend.disguise_name(path, self.disguise_extension) for path in paths]
+            if self.sfx is not None and self.disguise_extension.casefold() in (".exe", ".sfx"):
+                paths[0] = backend.disguise_name(paths[0], self.disguise_extension)
+            else:
+                paths = [backend.disguise_name(path, self.disguise_extension) for path in paths]
         return tuple(paths)
 
 
@@ -67,12 +72,16 @@ class CompressionPlan:
 
     @property
     def protected_inputs(self) -> tuple[Path, ...]:
-        """所有原始来源和载体视频，发布时均须保持完整。"""
+        """所有原始来源、载体视频和自解压素材，发布时均须保持完整。"""
         videos = (
             layer.video for task in self.tasks for layer in task.layers
             if layer.video is not None
         )
-        return (*self.sources, *videos)
+        resources = (
+            resource for task in self.tasks for layer in task.layers
+            if layer.sfx is not None for resource in layer.sfx.resources
+        )
+        return (*self.sources, *videos, *resources)
 
 
 @dataclass(frozen=True)

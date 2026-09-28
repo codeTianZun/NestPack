@@ -45,6 +45,8 @@ GUI/CLI + Linux CLI，共用 `core/` 引擎，版本 1.0.0）。智能体会话�
 | 来源暂存 / 输入作用域 | `core/compression/workspace.py` |
 | 格式协议 / 注册 / 内容识别 | `core/backends/base.py`、`core/backends/__init__.py` |
 | RAR / 7z / ZIP 命令与分卷规则、退出码表 | `core/backends/rar.py`、`sevenzip.py`、`zip.py` |
+| RAR 自解压目标 / 品牌模板 / 图标与脚本 | `core/sfx.py`、`core/config/sfx.py`、`core/models.py` |
+| RAR / PE / ELF 自解压内容识别 | `core/rar_content.py` |
 | 用户取消 / 内部停止信号 / CancelledError | `core/cancellation.py` |
 | 子进程启动 / 输出 / 停止与资源回收 | `core/process.py` |
 | 路径展开 / 原子文本写入 / 临时目录 / 可取消复制 | `core/filesystem.py` |
@@ -69,6 +71,7 @@ GUI/CLI + Linux CLI，共用 `core/` 引擎，版本 1.0.0）。智能体会话�
 | GUI 后台任务 / 线程状态与回收 | `gui/tasks/`、`gui/tasks/threading.py` |
 | GUI 工具路径 / 浏览与检测提示 / 安装动作 | `gui/views/runtime_panel.py` |
 | GUI 面板 / 对话框 / 字段读写 | `gui/views/` |
+| 自解压设置界面与数字菜单 | `gui/views/sfx_dialog.py`、`cli/sfx.py` |
 | GUI 主题 / 文件选择器外观与中文文案 / 项目 Logo | `gui/appearance/` |
 | Windows GUI/CLI 与 Linux CLI 单文件构建 / 图标 | `scripts/build.py` |
 | RAR 官网安装指引 / 7-Zip 下载与许可保留 | `platforms/tool_installer.py`、`scripts/fetch_tools.py` |

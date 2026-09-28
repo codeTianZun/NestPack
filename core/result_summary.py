@@ -107,6 +107,7 @@ def build_manifest(
                     "recovery_percent": settings.recovery_percent,
                     "volume_size": settings.volume_size,
                     "video_path": str(layer.plan.video) if layer.plan.video else None,
+                    "sfx_target": settings.sfx.target if settings.sfx.enabled else None,
                 }
             )
         manifest_groups.append(
@@ -150,6 +151,9 @@ def build_plan_manifest(plan: CompressionPlan) -> dict[str, Any]:
                     "compression_level": settings.compression_level,
                     "volume_size": settings.volume_size,
                     "video_path": str(layer.video) if layer.video else None,
+                    "sfx_target": settings.sfx.target if settings.sfx.enabled else None,
+                    "sfx_template": str(layer.sfx.template) if layer.sfx else None,
+                    "sfx_setup_set": bool(settings.sfx.enabled and settings.sfx.setup),
                 }
             )
         manifest_groups.append(

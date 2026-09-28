@@ -257,4 +257,23 @@ def pick_video(parent: QWidget, start_path: str) -> str | None:
     return None
 
 
-__all__ = ["pick_archive", "pick_directory", "pick_sources", "pick_video"]
+def pick_sfx_resource(parent: QWidget, start_path: str, kind: str) -> str | None:
+    """选择自解压模板或品牌图片。"""
+    title, filters = {
+        "template_path": ("自解压模板", "模板或品牌样包 (*.sfx *.SFX *.exe);;所有文件 (*)"),
+        "icon_path": ("ICO 图标", "图标 (*.ico);;所有文件 (*)"),
+        "logo_path": ("界面 Logo", "图片 (*.png *.bmp);;所有文件 (*)"),
+    }[kind]
+    dialog = QFileDialog(parent)
+    dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+    dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+    dialog.setNameFilter(filters)
+    _prepare_dialog(dialog, tip=f"选择{title}", accept_text="选择文件", start_path=start_path)
+    if dialog.exec() == QFileDialog.DialogCode.Accepted:
+        result = dialog.selectedFiles()
+        if result:
+            return result[0]
+    return None
+
+
+__all__ = ["pick_archive", "pick_directory", "pick_sources", "pick_video", "pick_sfx_resource"]

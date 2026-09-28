@@ -67,6 +67,13 @@ zip 层时解析；7z 家族工具可用 7z.exe / 7za.exe / 7zr.exe / 7zz / 7z�
   `-mem=AES256`（AES-256），**文件名不加密**（ZIP 格式无头加密）。
 - `archive_name`：输出文件名，扩展名按 format 补全（.rar / .7z / .zip）。
 - `name_template`：分别打包时按来源展开的模板，如 `{stem}_1`，优先于固定文件名；固定自定义名称使用 null。
+- `sfx`：缺省关闭。`enabled: true` 仅适用于 RAR；`target` 为 windows / linux，
+  默认 windows，输出后缀为 .exe / .sfx。`template_path` 默认 auto，可填官方
+  模块或品牌样包；`icon_path`、`logo_path`、`title`、`text`、`extract_path`、
+  `setup` 默认空。`overwrite` 默认为 ask，可选 overwrite / skip；`silent`
+  默认 show，可选 hide_start / hide_all。Linux 原生目标只设置目标与模板。
+  模板和图片路径按配置目录解析；解压路径和启动命令保持原文。
+  品牌模板工作流和直接参数见 [cli.md](cli.md)。
 - `password`：密码；空串不设密码（rar `-hp` / 7z `-mhe=on` 同时加密
   文件名）。**zip 层密码仅支持 ASCII 字符**（7-Zip 限制，非 ASCII
   密码在加载配置时报 ConfigError）。

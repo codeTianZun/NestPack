@@ -19,6 +19,7 @@ from cli.prompts import (
     ask_source_paths,
     ask_yes_no,
 )
+from cli.sfx import edit_sfx
 from core.backends import get_backend
 from core.config import validate_disguise_extension, validate_password, validate_volume_size
 from core.filesystem import normalize_user_path
@@ -53,6 +54,8 @@ def print_task_settings(config: AppConfig) -> None:
             f"  第 {index} 层：{layer.archive_name}（{layer.format}），密码：{state}，"
             f"级别：{layer.compression_level}，分卷：{layer.volume_size or '关闭'}"
         )
+        if layer.sfx.enabled:
+            print(f"    自解压：{layer.sfx.target}，模板：{layer.sfx.template_path}")
 
 
 def _ask_mode() -> str:
@@ -128,6 +131,7 @@ def _edit_layer(layer: LayerConfig, index: int, forbidden: set[str]) -> LayerCon
                 5: f"分卷：{layer.volume_size or '关闭'}",
                 6: f"恢复记录：{layer.recovery_percent or '关闭'}",
                 7: f"分别打包的层名模板：{layer.name_template or '使用固定文件名'}",
+                8: f"自解压：{layer.sfx.target if layer.sfx.enabled else '关闭'}",
                 0: "返回",
             },
             default=0,
@@ -152,7 +156,10 @@ def _edit_layer(layer: LayerConfig, index: int, forbidden: set[str]) -> LayerCon
                 recovery_percent=layer.recovery_percent if archive_format == FORMAT_RAR else None,
             )
         elif choice == 2:
-            name = ask_archive_name(index, layer.archive_name, forbidden, layer.format)
+            name = ask_archive_name(
+                index, layer.archive_name, forbidden, layer.format,
+                sfx_extension=layer.sfx.extension if layer.sfx.enabled else None,
+            )
             layer = replace(layer, archive_name=name, name_template=None)
         elif choice == 3:
             password = ask_password(index, layer.format)
@@ -174,6 +181,12 @@ def _edit_layer(layer: LayerConfig, index: int, forbidden: set[str]) -> LayerCon
             raw = input("层名模板，例如 {stem}_1（回车保留，- 使用固定文件名）：").strip()
             if raw:
                 layer = replace(layer, name_template=None if raw == "-" else raw)
+        elif choice == 8:
+            sfx = edit_sfx(layer.sfx)
+            extension = (
+                sfx.extension if sfx.enabled else get_backend(layer.format).archive_extension
+            )
+            layer = replace(layer, sfx=sfx, archive_name=Path(layer.archive_name).stem + extension)
 
 
 def _select_layer(layers: list[LayerConfig]) -> int:

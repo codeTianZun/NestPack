@@ -81,6 +81,8 @@ def print_config_summary(plan: CompressionPlan) -> None:
             if planned.video is not None:
                 print(f"  载体视频：{planned.video}")
             layer = planned.config
+            if planned.sfx is not None:
+                print(f"  自解压目标：{layer.sfx.target}，模板：{planned.sfx.template}")
             recovery = (
                 f"{layer.recovery_percent}%" if layer.recovery_percent is not None else "关闭"
             )

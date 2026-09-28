@@ -41,6 +41,32 @@ class ConfigError(ValueError):
 
 
 @dataclass(frozen=True)
+class SfxConfig:
+    """RAR 自解压的交付系统、品牌模板及接收者运行设置。"""
+
+    enabled: bool = False
+    target: str = "windows"
+    template_path: str = "auto"
+    icon_path: str = ""
+    logo_path: str = ""
+    title: str = ""
+    text: str = ""
+    extract_path: str = ""
+    setup: str = ""
+    overwrite: str = "ask"
+    silent: str = "show"
+
+    @property
+    def extension(self) -> str:
+        """接收者直接运行的默认文件后缀。"""
+        return ".exe" if self.target == "windows" else ".sfx"
+
+    def to_json_dict(self) -> dict[str, Any]:
+        """序列化逐层自解压设置。"""
+        return dict(vars(self))
+
+
+@dataclass(frozen=True)
 class LayerConfig:
     """单层压缩参数；None 表示不创建恢复记录。"""
 
@@ -58,6 +84,7 @@ class LayerConfig:
     password_set: bool = False
     # 压缩格式："rar" / "7z" / "zip"；缺省 rar。
     format: str = FORMAT_RAR
+    sfx: SfxConfig = field(default_factory=SfxConfig)
 
     def to_json_dict(self) -> dict[str, Any]:
         """转换成适合 GUI 编辑和 JSON 保存的显式结构。"""
@@ -73,6 +100,7 @@ class LayerConfig:
             "name_template": self.name_template,
             "volume_size": self.volume_size,
             "password_set": self.password_set or bool(self.password),
+            "sfx": self.sfx.to_json_dict(),
         }
 
 

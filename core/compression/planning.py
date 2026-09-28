@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import replace
 from pathlib import Path
 
@@ -16,8 +17,10 @@ from core.models import (
     AppConfig,
     ConfigError,
 )
+from core.sfx import SfxPlan, resolve_sfx
 from core.video import validate_video
 from platforms import get_archive_platform
+from platforms.win32.filename_rules import validate_filename as windows_filename
 
 from .models import CompressionPlan, LayerPlan, TaskPlan
 from .outputs import check_output_paths, existing_outputs
@@ -70,6 +73,7 @@ def _plan_task(
     output_directory: Path,
     tools: dict[str, Path],
     video: Path | None = None,
+    sfx_plans: dict[int, SfxPlan] | None = None,
 ) -> TaskPlan:
     """确定一套嵌套压缩包的层参数与输出命名。"""
     layers: list[LayerPlan] = []
@@ -79,9 +83,18 @@ def _plan_task(
             if config.compress_mode == COMPRESS_MODE_SEPARATE and layer.name_template:
                 name = (
                     layer.name_template.format(stem=sources[0].stem)
-                    + get_backend(layer.format).archive_extension
+                    + (layer.sfx.extension if layer.sfx.enabled
+                       else get_backend(layer.format).archive_extension)
                 )
-            name = validate_archive_name(name, layer.format)
+            name = validate_archive_name(
+                name, layer.format,
+                sfx_extension=layer.sfx.extension if layer.sfx.enabled else None,
+            )
+            if layer.sfx.enabled and layer.sfx.target == "windows":
+                windows_filename(name)
+                for previous in layers[-1:]:
+                    for path in previous.output_paths():
+                        windows_filename(path.name)
         except (KeyError, IndexError, AttributeError, ValueError) as error:
             raise ConfigError(
                 f"layers[{index}] 的层名无效（来源：{sources[0].name}）：{error}"
@@ -92,6 +105,7 @@ def _plan_task(
                 tool=tools[layer.format],
                 destination=(output_directory / name).resolve(),
                 video=video if index == len(config.layers) - 1 else None,
+                sfx=(sfx_plans or {}).get(index),
                 disguise_extension=(
                     config.disguise_extension
                     if config.disguise_outer_extension and index == len(config.layers) - 1
@@ -100,6 +114,32 @@ def _plan_task(
             )
         )
     return TaskPlan(sources=sources, output_directory=output_directory, layers=tuple(layers))
+
+
+def _validate_windows_sources(sources: tuple[Path, ...], hide_root: bool) -> None:
+    """在制作 Windows 首层前检查实际要释放的来源名称和同目录大小写冲突。"""
+    def check_names(parent: Path, names: list[str]) -> None:
+        seen: set[str] = set()
+        for name in names:
+            try:
+                if windows_filename(name) != name:
+                    raise ValueError("名称首尾含空白")
+                if name.casefold() in seen:
+                    raise ValueError("同目录文件名只存在大小写差异")
+            except ValueError as error:
+                raise ConfigError(
+                    f"Windows 自解压无法按原名释放 {parent / name}：{error}"
+                ) from error
+            seen.add(name.casefold())
+
+    for source in sources:
+        if not hide_root:
+            check_names(source.parent, [source.name])
+        if source.is_dir():
+            def on_error(error: OSError) -> None:
+                raise error
+            for root, directories, files in os.walk(source, onerror=on_error, followlinks=False):
+                check_names(Path(root), directories + files)
 
 
 def _validate_outputs(tasks: list[TaskPlan], sources: tuple[Path, ...]) -> None:
@@ -132,6 +172,28 @@ def build_compression_plan(
     tools = _resolve_tools(config, config_directory)
     sources = _resolve_sources(config, config_directory)
     output_directory = normalize_user_path(config.output_directory, config_directory)
+    sfx_plans: dict[int, SfxPlan] = {}
+    sfx_warnings: list[str] = []
+    for index, layer in enumerate(config.layers):
+        if not layer.sfx.enabled:
+            continue
+        if layer.format != FORMAT_RAR:
+            raise ConfigError(f"第 {index + 1} 层自解压需要选择 RAR 格式")
+        sfx_plans[index] = resolve_sfx(layer.sfx, tools[FORMAT_RAR], config_directory)
+        if index == len(config.layers) - 1:
+            if config.video_fusion:
+                raise ConfigError("最外层自解压与 MP4 融合互斥；可将自解压设置放在内部 RAR 层")
+            if (layer.sfx.target == "windows" and config.disguise_outer_extension
+                    and config.disguise_extension.casefold() != ".exe"):
+                raise ConfigError("Windows 最外层自解压需要 .exe 后缀，请调整扩展名伪装设置")
+        if index == 0 and layer.sfx.target == "windows":
+            _validate_windows_sources(sources, config.hide_source_name)
+        if layer.sfx.setup and (config.hide_source_name or config.randomize_layer_names):
+            sfx_warnings.append(
+                f"第 {index + 1} 层启动命令按原文写入；随机改名后请确认命令中的文件路径。"
+            )
+    if sfx_plans and config.add_padding:
+        sfx_warnings.append("原生自解压会一并释放随机填充文件；NestPack 解包会清理填充文件。")
     videos: dict[Path, Path] = {}
     if config.video_fusion:
         if config.layers[-1].volume_size:
@@ -162,11 +224,16 @@ def build_compression_plan(
                 raise ConfigError(f"多个来源去除后缀后同名：{source.name}，请区分来源名称")
             seen_stems.add(stem)
             task_output = (output_directory / source.stem).resolve()
-            tasks.append(_plan_task(config, (source,), task_output, tools, videos.get(source)))
+            tasks.append(_plan_task(
+                config, (source,), task_output, tools, videos.get(source), sfx_plans,
+            ))
     else:
-        tasks.append(_plan_task(config, sources, output_directory, tools, videos.get(sources[0])))
+        tasks.append(_plan_task(
+            config, sources, output_directory, tools, videos.get(sources[0]), sfx_plans,
+        ))
 
-    protected_inputs = (*sources, *videos.values())
+    protected_inputs = (*sources, *videos.values(),
+                        *(path for item in sfx_plans.values() for path in item.resources))
     _validate_outputs(tasks, protected_inputs)
     for task in tasks:
         ancestor = task.output_directory
@@ -174,8 +241,10 @@ def build_compression_plan(
             ancestor = ancestor.parent
         if not ancestor.is_dir():
             raise ConfigError(f"输出目录或其父路径不是文件夹：{ancestor}")
-        for layer in task.layers:
-            check_output_paths(existing_outputs(layer), config.overwrite_existing, protected_inputs)
+        for planned in task.layers:
+            check_output_paths(
+                existing_outputs(planned), config.overwrite_existing, protected_inputs,
+            )
 
     return CompressionPlan(
         config=config,
@@ -184,9 +253,9 @@ def build_compression_plan(
         tasks=tuple(tasks),
         winrar=tools.get(FORMAT_RAR),
         sevenzip=tools.get(FORMAT_7Z),
-        warnings=disk_warnings(
+        warnings=(*sfx_warnings, *disk_warnings(
             config, list(sources), output_directory,
             video_bytes=sum(task.layers[-1].video.stat().st_size for task in tasks
                             if task.layers[-1].video is not None),
-        ),
+        )),
     )

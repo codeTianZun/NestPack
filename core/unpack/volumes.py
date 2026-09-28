@@ -7,6 +7,8 @@ from pathlib import Path
 from core.backends import ArchiveBackend, iter_backends
 from core.cancellation import Cancellation
 from core.filesystem import link_or_copy_file
+from core.models import FORMAT_RAR
+from core.rar_content import rar_signature_offset
 
 
 def find_disguised_volume_set(
@@ -23,12 +25,18 @@ def find_disguised_volume_set(
         if parsed is None:
             continue
         base, _number, extension = parsed
+        sfx = backend.format_name == FORMAT_RAR and (rar_signature_offset(archive) or 0) > 0
         try:
             siblings = list(archive.parent.iterdir())
         except OSError:
             return None
         found: list[tuple[int, Path]] = []
         for path in siblings:
+            standard = backend.volume_name_pattern.fullmatch(path.name) if sfx else None
+            if (standard is not None and standard.group(1).casefold() == base.casefold()
+                    and int(standard.group(2)) > 1):
+                found.append((int(standard.group(2)), path))
+                continue
             sibling = backend.parse_disguised_volume(path.name)
             if (
                 sibling is not None

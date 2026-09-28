@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QScrollArea,
@@ -34,6 +36,7 @@ class LayersPanel(SectionCard):
             "列表顺序就是执行顺序：第一层在最里面，最后一层是最终压缩包。",
         )
         self.cards: list[LayerCard] = []
+        self._config_dir = Path.cwd()
 
         self.add_button = PushButton("添加一层", None, FluentIcon.ADD)
         self.add_button.clicked.connect(self.add_requested.emit)
@@ -68,11 +71,18 @@ class LayersPanel(SectionCard):
     def _append_card(self, layer: LayerConfig) -> None:
         """建立卡片及动作接线，集合变更完成后统一编号。"""
         card = LayerCard(layer)
+        card.config_dir = self._config_dir
         card.changed.connect(self.card_changed.emit)
         card.remove_requested.connect(self._remove_card)
         card.move_requested.connect(self._move_card)
         self.cards.append(card)
         self.layers_layout.insertWidget(len(self.cards) - 1, card)
+
+    def set_config_directory(self, directory: Path) -> None:
+        """将素材路径选择器定位到当前配置目录。"""
+        self._config_dir = directory
+        for card in self.cards:
+            card.config_dir = directory
 
     def set_cards(self, layers: list[LayerConfig]) -> None:
         """整体替换卡片集合（载入配置用）。"""

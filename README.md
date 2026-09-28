@@ -23,6 +23,7 @@ Windows 图形界面、Windows 命令行和 Linux 命令行共用同一种 JSON 
 | | 你可以做什么 |
 |---|---|
 | 🧱 多层打包 | 自由安排 RAR、7z、ZIP 的顺序，为每层设置文件名、密码、压缩级别和分卷大小。 |
+| 📦 RAR 自解压 | 每个 RAR 层可交付为 Windows EXE 或 Linux 终端自解压文件；Linux 服务器可复用 Windows 品牌模板。 |
 | 🔓 逐层解包 | 选择最外层文件，自动识别每层格式；支持混合格式、分卷和调整过扩展名的归档。 |
 | 🎬 视频融合 | 将完整归档融合为可播放的 MP4；支持默认视频、逐来源专用视频、已有归档独立融合与原归档提取。 |
 | 🖥️ 多种入口 | Windows 使用图形界面或命令行，Linux 使用命令行；命令行还提供数字菜单。 |
@@ -102,6 +103,11 @@ python -m cli --extract-video-archive ./out/existing.mp4 --output ./restored
 每套归档输出一个 MP4，内部压缩层仍可分卷。融合保留原视频的画面和声音，
 加密沿用归档密码。NestPack 可直接解包融合视频；外部工具与网盘在线预览的
 兼容性、已验证环境见[视频融合说明](使用说明.md#视频融合)。
+
+RAR 自解压可在每层设置中启用。为 Windows 用户分享资源时，先在 Windows
+制作带图标和 Logo 的品牌样包，再让 Linux 服务器通过 `--layer-sfx windows
+--layer-sfx-template /data/brands/site.exe` 复用。完整命令、Linux 原生自解压
+及嵌套规则见[自解压说明](使用说明.md#rar-自解压)。
 
 ## 🔐 密码与文件名
 

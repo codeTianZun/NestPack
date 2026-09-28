@@ -28,7 +28,10 @@ def randomized_layer_names(config: AppConfig) -> AppConfig:
         layers.append(
             replace(
                 layer,
-                archive_name=f"{name}{get_backend(layer.format).archive_extension}",
+                archive_name=name + (
+                    layer.sfx.extension if layer.sfx.enabled
+                    else get_backend(layer.format).archive_extension
+                ),
                 name_template=None,
             )
         )

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import replace
+from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -22,11 +24,12 @@ from qfluentwidgets import (
     ToolButton,
 )
 
-from core.backends import SUPPORTED_FORMATS, get_backend
-from core.config import validate_archive_name, validate_password, validate_volume_size
+from core.backends import get_backend
+from core.config.validation import parse_layer_config
 from core.models import FORMAT_7Z, FORMAT_RAR, FORMAT_ZIP, LayerConfig
 from gui.appearance.theme import SPACE_MD, SPACE_SM, SPACE_XS, apply_danger_style
 from gui.config.passwords import generate_password
+from gui.views.sfx_dialog import SfxSettingsDialog
 from gui.views.widgets import ComboBox, LineEdit, text_field
 
 # 压缩级别下拉选项：(显示名, 配置值)。
@@ -59,6 +62,8 @@ class LayerCard(QFrame):
         super().__init__()
         self.setObjectName("layerCard")
         self.name_template = layer.name_template
+        self.sfx_settings = layer.sfx
+        self.config_dir = Path.cwd()
         # 记录“该层本应设密码”的标记：persist_passwords=false 的配置
         # 载入时密码为空但标记为真，用户手动改空密码输入框时清除。
         self.password_set_hint = layer.password_set or bool(layer.password)
@@ -187,6 +192,19 @@ class LayerCard(QFrame):
         fields_row2.addWidget(volume_box, 4)
         outer.addLayout(fields_row2)
 
+        sfx_row = QHBoxLayout()
+        self.sfx_check = CheckBox("RAR 自解压")
+        self.sfx_check.setChecked(layer.sfx.enabled)
+        self.sfx_button = PushButton("自解压设置")
+        self.sfx_button.clicked.connect(self._edit_sfx)
+        self.sfx_label = QLabel()
+        self.sfx_label.setWordWrap(True)
+        sfx_row.addWidget(self.sfx_check)
+        sfx_row.addWidget(self.sfx_button)
+        sfx_row.addWidget(self.sfx_label, 1)
+        outer.addLayout(sfx_row)
+        self.sfx_check.toggled.connect(self._toggle_sfx)
+
         self.recovery_check.toggled.connect(self.recovery_spin.setEnabled)
         self.recovery_check.toggled.connect(self.changed)
         self.recovery_spin.valueChanged.connect(self.changed)
@@ -198,6 +216,7 @@ class LayerCard(QFrame):
         self.level_combo.currentIndexChanged.connect(self.changed)
         self.format_combo.currentIndexChanged.connect(self._on_format_changed)
         self._sync_recovery()
+        self._sync_sfx()
 
     def current_format(self) -> str:
         """当前选择的压缩格式（"rar" / "7z" / "zip"）。"""
@@ -214,21 +233,44 @@ class LayerCard(QFrame):
 
     def _on_format_changed(self) -> None:
         """切换格式：非 rar 禁用恢复记录，名称后缀跟随格式互换。"""
-        archive_format = self.current_format()
         self._sync_recovery()
-        current_name = self.name_edit.text().strip()
-        new_extension = get_backend(archive_format).archive_extension
-        for other_format in SUPPORTED_FORMATS:
-            if other_format == archive_format:
-                continue
-            other_extension = get_backend(other_format).archive_extension
-            if current_name.lower().endswith(other_extension):
-                # setText 不触发 textEdited，来源模板标记得以保留。
-                self.name_edit.setText(
-                    current_name[: -len(other_extension)] + new_extension
-                )
-                break
+        self._sync_sfx()
+        self._update_extension()
         self.changed.emit()
+
+    def _extension(self) -> str:
+        return (
+            self.sfx_settings.extension if self.sfx_settings.enabled
+            else get_backend(self.current_format()).archive_extension
+        )
+
+    def _update_extension(self) -> None:
+        current_name = self.name_edit.text().strip()
+        if Path(current_name).suffix.lower() in (".rar", ".7z", ".zip", ".exe", ".sfx"):
+            self.name_edit.setText(str(Path(current_name).with_suffix(self._extension())))
+
+    def _sync_sfx(self) -> None:
+        self.sfx_button.setEnabled(self.sfx_settings.enabled)
+        self.sfx_label.setText(
+            "自解压需要 RAR 格式，请调整格式或关闭自解压"
+            if self.sfx_settings.enabled and self.current_format() != FORMAT_RAR
+            else f"交付给 {self.sfx_settings.target.title()} 用户"
+            if self.sfx_settings.enabled else ""
+        )
+
+    def _toggle_sfx(self, enabled: bool) -> None:
+        self.sfx_settings = replace(self.sfx_settings, enabled=enabled)
+        self._sync_sfx()
+        self._update_extension()
+        self.changed.emit()
+
+    def _edit_sfx(self) -> None:
+        dialog = SfxSettingsDialog(self, self.sfx_settings, self.config_dir)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.sfx_settings = dialog.values()
+            self._sync_sfx()
+            self._update_extension()
+            self.changed.emit()
 
     def _name_edited(self, _text: str) -> None:
         """把用户编辑的层名标记为固定名称。"""
@@ -282,28 +324,18 @@ class LayerCard(QFrame):
             name_template=self.name_template,
             volume_size=self.volume_edit.text().strip() or None,
             password_set=self.password_set_hint or bool(password),
+            sfx=self.sfx_settings,
         )
-        try:
-            if layer.volume_size is not None:
-                validate_volume_size(layer.volume_size)
-            validate_password(layer.password, layer.format)
-            name = validate_archive_name(layer.archive_name, layer.format)
-        except ValueError:
-            if strict:
-                raise
-            name = layer.archive_name or (
-                f"layer_{index}{get_backend(layer.format).archive_extension}"
-            )
-        return replace(layer, archive_name=name)
+        return parse_layer_config(layer.to_json_dict(), index - 1, strict=strict)
 
     def retemplate_default(self, stem: str, index: int) -> None:
         """按来源更新使用默认模板的名称。"""
         current = self.name_edit.text().strip()
         if self.name_template or re.fullmatch(
-            r"layer_\d+\.(?:rar|7z|zip)", current, re.IGNORECASE
+            r"layer_\d+\.(?:rar|7z|zip|exe|sfx)", current, re.IGNORECASE
         ):
             self.name_template = f"{{stem}}_{index}"
-            extension = get_backend(self.current_format()).archive_extension
+            extension = self._extension()
             self.set_name(f"{stem}_{index}{extension}")
 
 

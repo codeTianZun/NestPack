@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from core.models import FORMAT_7Z, FORMAT_RAR, FORMAT_ZIP, ConfigError
+from core.rar_content import rar_signature_offset
 
 from .base import ArchiveBackend, describe_exit_code
 from .rar import RarBackend
@@ -59,4 +60,6 @@ def detect_archive_format(path: Path) -> str | None:
     for archive_format, backend in _BACKENDS.items():
         if header.startswith(backend.signature):
             return archive_format
+    if header.startswith((b"MZ", b"\x7fELF")) and rar_signature_offset(path) is not None:
+        return FORMAT_RAR
     return None

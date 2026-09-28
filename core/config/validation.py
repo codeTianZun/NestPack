@@ -17,6 +17,8 @@ from core.models import (
 )
 from platforms import get_archive_platform
 
+from .sfx import parse_sfx_config
+
 # 分卷大小的写法：数字加可选单位，如 500k / 100m / 1g / 1048576。
 VOLUME_SIZE_PATTERN = re.compile(r"\d+(?:\.\d+)?[bBkKmMgG]?")
 
@@ -24,10 +26,14 @@ VOLUME_SIZE_PATTERN = re.compile(r"\d+(?:\.\d+)?[bBkKmMgG]?")
 DISGUISE_EXTENSION_PATTERN = re.compile(r"^\.[0-9A-Za-z]{1,8}$")
 
 
-def validate_archive_name(raw_name: str, archive_format: str = FORMAT_RAR) -> str:
-    """校验压缩包文件名并按格式自动补充扩展名（.rar / .7z / .zip）。"""
+def validate_archive_name(
+    raw_name: str, archive_format: str = FORMAT_RAR, *, sfx_extension: str | None = None,
+) -> str:
+    """校验层文件名并按归档格式或自解压交付目标补充扩展名。"""
     name = get_archive_platform().validate_filename(raw_name)
-    extension = get_backend(archive_format).archive_extension
+    extension = sfx_extension or get_backend(archive_format).archive_extension
+    if sfx_extension and name.lower().endswith(".rar"):
+        name = name[:-4]
     if not name.lower().endswith(extension):
         name += extension
     return name
@@ -109,7 +115,7 @@ def parse_layer_config(
     """解析并验证 layers 数组中的一项。
 
     strict=False 用于 GUI 载入草稿，保留文件名、密码和分卷大小的未完成
-    输入；字段类型与格式能力约束始终校验。
+    输入及自解压的组合冲突；字段类型始终校验。
     """
     location = f"layers[{layer_index}]"
     if not isinstance(raw_layer, dict):
@@ -122,11 +128,16 @@ def parse_layer_config(
             f"{' 或 '.join(repr(name) for name in SUPPORTED_FORMATS)}"
         )
 
+    sfx = parse_sfx_config(raw_layer.get("sfx", {}), strict=strict)
+    if strict and sfx.enabled and archive_format != FORMAT_RAR:
+        raise ConfigError(f"{location}.sfx：自解压适用于 RAR 层，请调整格式或关闭自解压")
+
     if strict:
         try:
             archive_name = validate_archive_name(
                 require_string(raw_layer, "archive_name", location),
                 archive_format,
+                sfx_extension=sfx.extension if sfx.enabled else None,
             )
         except ValueError as error:
             raise ConfigError(f"{location}.archive_name 无效：{error}") from error
@@ -201,4 +212,5 @@ def parse_layer_config(
         name_template=name_template,
         volume_size=volume_size,
         password_set=password_set,
+        sfx=sfx,
     )

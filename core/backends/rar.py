@@ -6,9 +6,10 @@ import re
 from pathlib import Path
 
 from core.models import FORMAT_RAR
+from core.rar_content import rar_signature_offset
 from platforms import get_archive_platform
 
-from .base import DISGUISED_VOLUME_EXTENSION_CHARS, has_signature
+from .base import DISGUISED_VOLUME_EXTENSION_CHARS
 
 # RAR4 与 RAR5 共用的 6 字节签名前缀。
 RAR_SIGNATURE = b"Rar!\x1a\x07"
@@ -37,10 +38,10 @@ class RarBackend:
     archive_extension = ".rar"
     signature = RAR_SIGNATURE
     exit_codes = RAR_EXIT_CODES
-    volume_name_pattern = re.compile(r"^(.*)\.part(\d+)\.rar$", re.IGNORECASE)
+    volume_name_pattern = re.compile(r"^(.*)\.part(\d+)\.(?:rar|exe|sfx)$", re.IGNORECASE)
 
     def looks_like(self, path: Path) -> bool:
-        return has_signature(path, self.signature)
+        return rar_signature_offset(path) is not None
 
     def build_add_command(
         self,
@@ -113,7 +114,9 @@ class RarBackend:
 
     def volume_final_names(self, destination: Path, count: int) -> list[Path]:
         return [
-            destination.with_suffix(f".part{number}.rar")
+            destination.with_suffix(
+                f".part{number}{destination.suffix if number == 1 else '.rar'}"
+            )
             for number in range(1, count + 1)
         ]
 
@@ -126,7 +129,7 @@ class RarBackend:
         escaped = re.escape(base.name)
         for path in base.parent.iterdir():
             match = re.fullmatch(
-                rf"{escaped}\.part(\d+)\.rar", path.name, re.IGNORECASE
+                rf"{escaped}\.part(\d+)\.(?:rar|exe|sfx)", path.name, re.IGNORECASE
             )
             if match:
                 found.append((int(match.group(1)), path))

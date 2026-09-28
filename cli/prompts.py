@@ -190,12 +190,15 @@ def ask_archive_name(
     default_name: str,
     forbidden_names: set[str],
     archive_format: str = FORMAT_RAR,
+    *, sfx_extension: str | None = None,
 ) -> str:
     """读取并校验一层的文件名，检查与已收集的层名是否重复。"""
     while True:
         raw_name = input(f"第 {layer_number} 层压缩文件名（直接回车使用 {default_name}）：").strip()
         try:
-            archive_name = validate_archive_name(raw_name or default_name, archive_format)
+            archive_name = validate_archive_name(
+                raw_name or default_name, archive_format, sfx_extension=sfx_extension,
+            )
         except ValueError as error:
             print(f"文件名无效：{error}")
             continue

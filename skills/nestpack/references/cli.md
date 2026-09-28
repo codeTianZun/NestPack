@@ -49,6 +49,12 @@ python3 -m cli --config /data/task.json --yes --non-interactive --json
 | `--layer-level auto\|0..5` | 本层压缩级别 |
 | `--layer-volume-size 100m` | 本层分卷大小 |
 | `--layer-recovery 1..100` | RAR 恢复记录比例 |
+| `--layer-sfx windows\|linux` | 启用本 RAR 层自解压，目标取决于接收者系统 |
+| `--layer-sfx-template PATH` | 官方模块或已制作的品牌样包；默认 auto |
+| `--layer-sfx-icon` / `--layer-sfx-logo` | ICO / PNG 或 BMP；修改需 Windows WinRAR.exe |
+| `--layer-sfx-title` / `--layer-sfx-text` | Windows 标题 / 多行说明 |
+| `--layer-sfx-path` / `--layer-sfx-setup` | 接收者解压路径 / 成功解压本层后的原始命令 |
+| `--layer-sfx-overwrite` / `--layer-sfx-silent` | ask / overwrite / skip；show / hide_start / hide_all |
 | `--rar-path` / `--sevenzip-path` | 工具路径或 auto，压缩和解包都可用 |
 | `--save-config PATH` | 保存本次配置，使用绝对路径，按 persist_passwords 决定密码落盘 |
 | `--disguise-extension .bin` | 指定并启用最外层扩展名调整，显式布尔参数优先 |
@@ -82,6 +88,23 @@ python3 -m cli --config /data/task.json --yes --non-interactive --json
 及许可材料安装到程序同目录的 dependencies/7z。
 `--init` 交互创建配置并退出；自动化通过直接参数和 `--save-config` 保存。
 完整参数可查询 `--help`；`--version` 显示版本。这两种查询保持文本输出。
+
+## 自解压与服务器交付
+
+Linux 服务器交付 Windows 品牌包时，先取得用户在 Windows 准备的品牌样包，
+再调用（图标和 Logo 沿用模板，本次内容与脚本重新生成）：
+
+```bash
+python3 -m cli --source /data/input --output /data/out --layer rar --layer-name resources --layer-sfx windows --layer-sfx-template /data/brands/site.exe --layer-sfx-title '站点资源' --layer-sfx-setup 'cmd.exe /c start "" "https://example.com"' --yes --non-interactive --json
+```
+
+启动命令按用户要求填写，默认留空；相对路径以接收者解压目录为基准。
+Linux 原生目标只设置 target 和 template_path，其余 Windows 字段保持默认。
+任何 SFX 层参数都会启用自解压，未指定目标时为 windows。Windows 最外层
+SFX 需 `.exe`，与其他扩展名伪装冲突；最外层 SFX 与 MP4 融合互斥。
+可把 SFX 放内层再包普通外层。分卷必须分享 `final` 中的全部文件；Windows
+首卷 `.exe`、Linux 首卷 `.sfx`，后续 `.rar`。NestPack 解包不会执行 Setup。
+Logo 由下载后运行的 Windows SFX 展示，网盘预览取决于平台。
 
 ## 结果 schema（schema_version = 1）
 
@@ -128,6 +151,8 @@ python3 -m cli --config /data/task.json --yes --non-interactive --json
 `volume_size`；分卷仅列首卷，密码只提供标记。
 融合任务的计划顶层另有 `video_fusion`，各层的 `video_path` 为实际载体
 绝对路径，普通层为 null；成品路径在 `final` 与 `expected_files` 中展示。
+层记录还含 `sfx_target`（windows / linux / null）；自解压的 format 仍为 rar。
+计划另含 `sfx_template`（实际模板绝对路径或 null）、`sfx_setup_set`（布尔）。
 
 解包成功：`status: "ok"`、`mode: "unpack"`、`output_dir` 和 `entries` 数组。
 初始化成功：`mode: "init"`、`config_path`。安装成功：`mode: "install"`、

@@ -65,6 +65,7 @@ class MainWindow(QMainWindow):
         """更新配置名称与路径选择器的起始位置。"""
         self._config_dir = path.parent
         self.source.set_config_directory(path.parent)
+        self.layers.set_config_directory(path.parent)
         self.settings.runtime.set_config_directory(path.parent)
         self.config_name_label.setText(path.name)
 

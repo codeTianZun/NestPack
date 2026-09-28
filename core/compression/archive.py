@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import os
+import stat
 from collections.abc import Callable
 from pathlib import Path
 
 from core.backends import ArchiveBackend, describe_exit_code, get_backend
 from core.cancellation import Cancellation
 from core.filesystem import temporary_directory
+from core.models import ConfigError
 from core.process import run_command
+from core.rar_content import rar_signature_offset
+from core.sfx import prepare_sfx_options
 from core.video import write_fused_video
 
 from .models import LayerPlan
@@ -38,7 +42,9 @@ def compress_layer(
     protected_inputs = (*original_sources, source, *(source.parent / name for name in extra_inputs))
     check_output_paths(existing_outputs(planned), overwrite_existing, protected_inputs)
     with temporary_directory(planned.destination.parent) as work:
-        part = work / f"{planned.destination.name}.part"
+        part = work / (
+            planned.destination.name if planned.sfx else f"{planned.destination.name}.part"
+        )
         command = backend.build_add_command(
             planned.tool,
             source,
@@ -50,6 +56,8 @@ def compress_layer(
             volume_size=layer.volume_size,
             extra_inputs=extra_inputs,
         )
+        if planned.sfx is not None:
+            command[2:2] = prepare_sfx_options(planned.sfx, layer.sfx, work)
         return_code = run_command(
             command, cwd=source.parent, cancellation=cancellation,
             output_cb=output_cb, hide_console=output_cb is not None,
@@ -59,7 +67,16 @@ def compress_layer(
                 f"{describe_exit_code(return_code, planned.tool, backend.exit_codes)}，"
                 "压缩未成功。"
             )
-        products = _collect_products(part, backend, bool(layer.volume_size), planned.tool)
+        products = _collect_products(
+            part, backend, bool(layer.volume_size), planned.tool, sfx=planned.sfx is not None,
+        )
+        if planned.sfx is not None:
+            if not rar_signature_offset(products[0]):
+                raise ConfigError("生成的自解压模块无法识别或超过 1 MiB，请缩小图标或 Logo 素材")
+            if layer.sfx.target == "windows" and products[0].stat().st_size >= 1 << 32:
+                raise ConfigError("Windows 自解压可执行文件应小于 4 GiB，请设置更小的分卷大小")
+            if layer.sfx.target == "linux":
+                products[0].chmod(products[0].stat().st_mode | stat.S_IXUSR)
         if verify:
             verify_archive(
                 planned.tool, backend, products[0], layer.password,
@@ -108,18 +125,22 @@ def verify_archive(
 
 def _collect_products(
     part: Path, backend: ArchiveBackend, split: bool, tool: Path,
+    *, sfx: bool = False,
 ) -> tuple[Path, ...]:
     """收集工具产生的文件，补齐 RAR 内容不足一卷时的卷名。"""
     if not split:
         if not part.is_file():
             raise RuntimeError(f"{tool.name} 未报告错误，但没有找到输出压缩包。")
         return (part,)
-    volumes = backend.find_volumes(part)
+    base = part.with_suffix("") if sfx else part
+    volumes = backend.find_volumes(base)
     if not volumes and part.is_file():
-        bare_target = backend.bare_volume_target(part)
+        bare_target = (
+            backend.volume_final_names(part, 1)[0] if sfx else backend.bare_volume_target(part)
+        )
         if bare_target is not None:
             os.replace(part, bare_target)
-            volumes = backend.find_volumes(part)
+            volumes = backend.find_volumes(base)
     if not volumes:
         raise RuntimeError(f"{tool.name} 未报告错误，但没有找到输出的分卷。")
     return tuple(path for _number, path in volumes)

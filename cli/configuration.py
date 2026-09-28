@@ -68,6 +68,8 @@ def absolute_config(config: AppConfig, config_path: Path | None) -> AppConfig:
     sources = [str(normalize_user_path(value, base)) for value in config.effective_source_paths()]
 
     def tool_path(value: str) -> str:
+        if not value.strip():
+            return value
         return "auto" if value.strip().lower() == "auto" else str(normalize_user_path(value, base))
 
     return replace(
@@ -84,6 +86,14 @@ def absolute_config(config: AppConfig, config_path: Path | None) -> AppConfig:
             str(normalize_user_path(source, base)): str(normalize_user_path(video, base))
             for source, video in config.source_video_paths.items() if video
         },
+        layers=[replace(layer, sfx=replace(
+            layer.sfx,
+            template_path=tool_path(layer.sfx.template_path),
+            icon_path=str(normalize_user_path(layer.sfx.icon_path, base))
+            if layer.sfx.icon_path else "",
+            logo_path=str(normalize_user_path(layer.sfx.logo_path, base))
+            if layer.sfx.logo_path else "",
+        )) for layer in config.layers],
     )
 
 
@@ -92,8 +102,11 @@ def write_task_config(path: Path, config: AppConfig, config_path: Path | None) -
     snapshot = absolute_config(config, config_path)
     protected = [*snapshot.effective_source_paths(), snapshot.video_path,
                  *snapshot.source_video_paths.values()]
+    protected.extend(value for layer in snapshot.layers for value in (
+        layer.sfx.template_path, layer.sfx.icon_path, layer.sfx.logo_path,
+    ) if value and value.casefold() != "auto")
     if path.resolve() in (Path(value) for value in protected if value):
-        raise ConfigError("配置保存路径与原始来源或载体视频冲突，请选择其他配置文件名")
+        raise ConfigError("配置保存路径与来源、视频或自解压素材冲突，请选择其他配置文件名")
     save_config(path, snapshot if snapshot.persist_passwords else snapshot.without_passwords())
 
 
@@ -126,6 +139,17 @@ def _layer_from_options(spec: dict, index: int, stem: str) -> dict:
         except ValueError as error:
             raise ConfigError(f"第 {index} 层 --layer-recovery 必须为 1–100 的整数") from error
         raw["recovery_record"] = {"enabled": True, "percent": percent}
+    sfx_values = {
+        key.removeprefix("sfx_"): values.pop(key)
+        for key in list(values) if key.startswith("sfx_")
+    }
+    if sfx_values:
+        sfx = raw["sfx"]
+        sfx.update(sfx_values)
+        sfx["enabled"] = True
+        for key in ("template_path", "icon_path", "logo_path"):
+            if sfx[key] and sfx[key].casefold() != "auto":
+                sfx[key] = str(normalize_user_path(sfx[key]))
     raw.update(values)
     raw["password_set"] = bool(raw["password"])
     return raw

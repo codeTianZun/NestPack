@@ -13,6 +13,7 @@ from core.backends import detect_archive_format, get_backend
 from core.cancellation import Cancellation
 from core.filesystem import temporary_directory
 from core.models import ConfigError
+from core.rar_content import rar_signature_offset
 
 from .mp4 import box_header, copy_range, iter_boxes, read_exact, read_movie, write_movie
 from .zip_directory import read_directory, write_directory
@@ -81,6 +82,8 @@ def _archive_format(path: Path) -> str:
     archive_format = detect_archive_format(path)
     if archive_format is None:
         raise ConfigError(f"请选择完整的 RAR、7z 或 ZIP 单文件归档：{path}")
+    if archive_format == "rar" and rar_signature_offset(path) != 0:
+        raise ConfigError("MP4 融合需要普通归档；请将自解压文件包入一个普通外层归档后融合")
     backend = get_backend(archive_format)
     if (backend.volume_name_pattern.fullmatch(path.name)
             or backend.parse_disguised_volume(path.name)):

@@ -199,6 +199,16 @@ def create_parser() -> ArgumentParser:
         ("--layer-volume-size", "volume_size", "本层分卷大小，如 100m"),
         ("--layer-recovery", "recovery_percent", "本层恢复记录百分比 1–100，仅 RAR"),
         ("--layer-name-template", "name_template", "分别打包的层名模板，如 {stem}_1"),
+        ("--layer-sfx", "sfx_target", "启用本层自解压，交付目标 windows 或 linux"),
+        ("--layer-sfx-template", "sfx_template_path", "品牌样包或官方 SFX 模板路径，默认 auto"),
+        ("--layer-sfx-icon", "sfx_icon_path", "Windows 制作端的 ICO 图标"),
+        ("--layer-sfx-logo", "sfx_logo_path", "Windows 制作端的 PNG / BMP 界面 Logo"),
+        ("--layer-sfx-title", "sfx_title", "Windows 自解压窗口标题"),
+        ("--layer-sfx-text", "sfx_text", "Windows 自解压说明文字，可含换行"),
+        ("--layer-sfx-path", "sfx_extract_path", "接收者默认解压路径，留空使用原生选择"),
+        ("--layer-sfx-setup", "sfx_setup", "成功解压后运行的 Windows 命令，默认留空"),
+        ("--layer-sfx-overwrite", "sfx_overwrite", "接收者覆盖策略：ask / overwrite / skip"),
+        ("--layer-sfx-silent", "sfx_silent", "接收者界面：show / hide_start / hide_all"),
     ):
         compression.add_argument(
             flag,

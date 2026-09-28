@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 from pathlib import Path
 
 from core.backends import get_backend
 from core.cancellation import Cancellation
 from core.filesystem import cleanup_path, link_or_copy_file
+from core.models import FORMAT_RAR
 
 from .models import LayerPlan
 
@@ -27,10 +29,27 @@ def existing_outputs(planned: LayerPlan) -> tuple[Path, ...]:
     first = planned.output_paths()[0]
     if not first.parent.exists():
         return ()
+    if planned.sfx is not None and (
+        planned.disguise_extension is None
+        or planned.disguise_extension.casefold() in (".exe", ".sfx")
+    ):
+        tail = re.compile(
+            rf"{re.escape(planned.destination.stem)}\.part(\d+)\.rar", re.IGNORECASE,
+        )
+        for path in first.parent.iterdir():
+            match = tail.fullmatch(path.name)
+            if path.name == first.name or (match is not None and int(match.group(1)) > 1):
+                found.append(path)
+        return tuple(sorted(found))
     standard = backend.volume_name_pattern.fullmatch(first.name)
-    disguised = backend.parse_disguised_volume(first.name) if standard is None else None
+    disguised = backend.parse_disguised_volume(first.name)
+    if disguised is not None:
+        standard = None
     for path in first.parent.iterdir():
         if standard is not None:
+            if (planned.config.format == FORMAT_RAR
+                    and path.suffix.casefold() != first.suffix.casefold()):
+                continue
             match = backend.volume_name_pattern.fullmatch(path.name)
             if match is not None and match.group(1).casefold() == standard.group(1).casefold():
                 found.append(path)
