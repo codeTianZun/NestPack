@@ -10,6 +10,7 @@ from core.backends import ArchiveBackend, describe_exit_code, get_backend
 from core.cancellation import Cancellation
 from core.filesystem import temporary_directory
 from core.process import run_command
+from core.video import write_fused_video
 
 from .models import LayerPlan
 from .outputs import check_output_paths, existing_outputs, publish_files
@@ -64,6 +65,15 @@ def compress_layer(
                 planned.tool, backend, products[0], layer.password,
                 show_gui=show_gui, cancellation=cancellation, output_cb=output_cb,
             )
+        if planned.video is not None:
+            fused = work / "fused.mp4"
+            write_fused_video(planned.video, products[0], fused, cancellation, output_cb)
+            if verify:
+                verify_archive(
+                    planned.tool, backend, fused, layer.password,
+                    show_gui=show_gui, cancellation=cancellation, output_cb=output_cb,
+                )
+            products = (fused,)
         if randomize_time:
             randomize_timestamps(products, cancellation)
         return publish_files(

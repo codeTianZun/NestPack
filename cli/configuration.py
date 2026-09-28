@@ -79,14 +79,21 @@ def absolute_config(config: AppConfig, config_path: Path | None) -> AppConfig:
         else "",
         winrar_path=tool_path(config.winrar_path),
         sevenzip_path=tool_path(config.sevenzip_path),
+        video_path=str(normalize_user_path(config.video_path, base)) if config.video_path else "",
+        source_video_paths={
+            str(normalize_user_path(source, base)): str(normalize_user_path(video, base))
+            for source, video in config.source_video_paths.items() if video
+        },
     )
 
 
 def write_task_config(path: Path, config: AppConfig, config_path: Path | None) -> None:
     """保存当前任务的路径快照，并应用密码持久化设置。"""
     snapshot = absolute_config(config, config_path)
-    if path.resolve() in (Path(value) for value in snapshot.effective_source_paths()):
-        raise ConfigError("配置保存路径与原始来源冲突，请选择其他配置文件名")
+    protected = [*snapshot.effective_source_paths(), snapshot.video_path,
+                 *snapshot.source_video_paths.values()]
+    if path.resolve() in (Path(value) for value in protected if value):
+        raise ConfigError("配置保存路径与原始来源或载体视频冲突，请选择其他配置文件名")
     save_config(path, snapshot if snapshot.persist_passwords else snapshot.without_passwords())
 
 
@@ -162,6 +169,19 @@ def configuration_from_arguments(arguments: argparse.Namespace) -> tuple[AppConf
             raw[field] = value
     if arguments.disguise_extension is not None and arguments.disguise_outer_extension is None:
         raw["disguise_outer_extension"] = True
+    if arguments.video_path is not None:
+        if not arguments.video_path.strip():
+            raise ConfigError("--video 路径不能为空")
+        raw["video_path"] = str(normalize_user_path(arguments.video_path))
+    if arguments.source_video_paths is not None:
+        raw["source_video_paths"] = {
+            **raw["source_video_paths"],
+            **{str(normalize_user_path(source)): str(normalize_user_path(video))
+               for source, video in arguments.source_video_paths},
+        }
+    if (arguments.video_path is not None or arguments.source_video_paths is not None
+            ) and arguments.video_fusion is None:
+        raw["video_fusion"] = True
     if arguments.layer_specs is not None:
         stem = Path(raw["source_path"]).stem or "archive"
         raw["layers"] = [

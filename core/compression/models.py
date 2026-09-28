@@ -17,9 +17,12 @@ class LayerPlan:
     tool: Path
     destination: Path
     disguise_extension: str | None = None
+    video: Path | None = None
 
     def output_paths(self, volume_count: int = 1) -> tuple[Path, ...]:
         """按实际卷数生成产物路径；预览时用第一卷表达尚未确定大小的分卷套。"""
+        if self.video is not None:
+            return (self.destination.with_suffix(".mp4"),)
         backend = get_backend(self.config.format)
         paths = (
             backend.volume_final_names(self.destination, volume_count)
@@ -61,6 +64,15 @@ class CompressionPlan:
     def total_layers(self) -> int:
         """本次压缩需要完成的总层数。"""
         return sum(len(task.layers) for task in self.tasks)
+
+    @property
+    def protected_inputs(self) -> tuple[Path, ...]:
+        """所有原始来源和载体视频，发布时均须保持完整。"""
+        videos = (
+            layer.video for task in self.tasks for layer in task.layers
+            if layer.video is not None
+        )
+        return (*self.sources, *videos)
 
 
 @dataclass(frozen=True)

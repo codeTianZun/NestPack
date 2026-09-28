@@ -6,7 +6,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from core.backends import ArchiveBackend, detect_archive_format, get_backend
+from core.backends import ArchiveBackend, detect_archive_format, iter_backends
+from core.models import FORMAT_RAR
 
 # 识别载荷时忽略填充文件，包括当前的 12 位十六进制 .dat 名称，
 # 以及已有归档中 stack_pad_ 加 8 位十六进制名的 .bin 文件。
@@ -28,9 +29,9 @@ class ExtractedContent:
 def classify_extracted(directory: Path) -> ExtractedContent:
     """判断一层解出的内容是中间压缩层还是最终载荷。
 
-    规则：忽略随机填充文件后，若剩余条目全部是文件且都带同一种
-    受支持格式的文件头，并构成单个压缩包或从 1 开始连续编号的一套
-    分卷，则视为中间层；否则视为载荷。载荷本身恰好只有一个压缩包
+    忽略随机填充后，单个压缩包或从 1 开始连续编号的分卷套视为中间层。
+    RAR 每卷带文件头，7z / ZIP 字节分卷由首卷文件头识别。
+    载荷本身恰好只有一个压缩包
     文件时无法区分，会被当作中间层继续解开，此时可用 layer_limit
     强制指定层数。
     """
@@ -42,15 +43,16 @@ def classify_extracted(directory: Path) -> ExtractedContent:
     files = [entry for entry in entries if entry.is_file()]
     if not files or len(files) != len(entries):
         return ExtractedContent(False, ())
-    formats = {detect_archive_format(path) for path in files}
-    if len(formats) != 1 or None in formats:
-        return ExtractedContent(False, ())
-    archive_format = next(iter(formats))
-    if archive_format is None:
-        return ExtractedContent(False, ())
-    backend = get_backend(archive_format)
-    volumes = _ordered_volume_set(files, backend)
-    return ExtractedContent(volumes is not None, volumes or (), archive_format)
+    for backend in iter_backends():
+        volumes = _ordered_volume_set(files, backend)
+        if volumes is None or detect_archive_format(volumes[0]) != backend.format_name:
+            continue
+        if backend.format_name == FORMAT_RAR and any(
+            detect_archive_format(path) != FORMAT_RAR for path in volumes[1:]
+        ):
+            continue
+        return ExtractedContent(True, volumes, backend.format_name)
+    return ExtractedContent(False, ())
 
 
 def _ordered_volume_set(

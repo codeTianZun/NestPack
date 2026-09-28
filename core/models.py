@@ -106,6 +106,9 @@ class AppConfig:
     # 7-Zip 命令行工具路径，语义同 winrar_path（auto 表示自动检测）；
     # 只在配置里存在 7z 或 zip 层时解析。
     sevenzip_path: str = "auto"
+    video_fusion: bool = False
+    video_path: str = ""
+    source_video_paths: dict[str, str] = field(default_factory=dict)
 
     def effective_source_paths(self) -> list[str]:
         """返回实际生效的来源列表，兼容只填了 source_path 的旧配置。"""
@@ -117,6 +120,9 @@ class AppConfig:
             "config_version": CONFIG_VERSION,
             "winrar_path": self.winrar_path,
             "sevenzip_path": self.sevenzip_path,
+            "video_fusion": self.video_fusion,
+            "video_path": self.video_path,
+            "source_video_paths": dict(self.source_video_paths),
             "source_path": self.source_path,
             "source_paths": list(self.source_paths),
             "compress_mode": self.compress_mode,

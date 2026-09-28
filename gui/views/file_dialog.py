@@ -242,4 +242,19 @@ def pick_archive(
     return None
 
 
-__all__ = ["pick_archive", "pick_directory", "pick_sources"]
+def pick_video(parent: QWidget, start_path: str) -> str | None:
+    """选择 MP4 载体或融合视频，沿用统一文件选择器外观。"""
+    dialog = QFileDialog(parent)
+    dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+    dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+    dialog.setNameFilter("MP4 视频 (*.mp4);;所有文件 (*.*)")
+    _prepare_dialog(dialog, tip="选择 MP4 视频", accept_text="选择视频",
+                    start_path=start_path, default_output="")
+    if dialog.exec() == QFileDialog.DialogCode.Accepted:
+        result = dialog.selectedFiles()
+        if result:
+            return result[0]
+    return None
+
+
+__all__ = ["pick_archive", "pick_directory", "pick_sources", "pick_video"]

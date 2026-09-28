@@ -26,7 +26,7 @@ def path_size(path: Path) -> int:
 
 
 def disk_warnings(
-    config: AppConfig, sources: list[Path], output_directory: Path
+    config: AppConfig, sources: list[Path], output_directory: Path, *, video_bytes: int = 0,
 ) -> tuple[str, ...]:
     """启动前估算磁盘占用并与剩余空间比较，偏紧时给出提示。
 
@@ -37,7 +37,7 @@ def disk_warnings(
         # 再次全量 rglob（大目录的重复遍历开销显著）。
         sizes = {source: path_size(source) for source in sources}
         source_total = sum(sizes.values())
-        if source_total < 64 * 1024 * 1024:
+        if source_total + video_bytes < 64 * 1024 * 1024:
             return ()
         ancestor = output_directory
         while not ancestor.exists():
@@ -49,6 +49,8 @@ def disk_warnings(
     # 压缩峰值：上一层产物 + 正在写入的临时文件，约两份数据，
     # 外加恢复记录等零头；按不可压缩估算，宁多勿少。
     need = int(source_total * 2.2)
+    if config.video_fusion:
+        need += source_total + video_bytes
 
     # 需要整份复制的部分：合并多来源的暂存目录、脱敏别名的文件夹复制。
     copy_total = 0

@@ -24,6 +24,7 @@ Windows 图形界面、Windows 命令行和 Linux 命令行共用同一种 JSON 
 |---|---|
 | 🧱 多层打包 | 自由安排 RAR、7z、ZIP 的顺序，为每层设置文件名、密码、压缩级别和分卷大小。 |
 | 🔓 逐层解包 | 选择最外层文件，自动识别每层格式；支持混合格式、分卷和调整过扩展名的归档。 |
+| 🎬 视频融合 | 将完整归档融合为可播放的 MP4；支持默认视频、逐来源专用视频、已有归档独立融合与原归档提取。 |
 | 🖥️ 多种入口 | Windows 使用图形界面或命令行，Linux 使用命令行；命令行还提供数字菜单。 |
 | 🧩 复用任务 | 将设置保存为 JSON，图形界面和命令行都能读取。 |
 | 🛠️ 更多选项 | RAR 层可添加恢复记录；还可选择源名称别名、随机填充、最外层扩展名调整和逐层自检。 |
@@ -89,6 +90,18 @@ python -m cli --unpack ./out/outer.7z
 ```
 
 Linux 源码运行将 `python` 换成 `python3`；Windows 发布程序将 `python -m cli` 换成 `nestpack-cli.exe`。分卷归档请从第一卷开始解包，并将同一套分卷放在同一目录。更多参数、密码文件及 JSON 配置用法见 [使用说明](使用说明.md)。
+
+视频融合可在 GUI「任务来源」中启用，也可使用参数：
+
+```bash
+python -m cli --source ./data --output ./out --layer 7z --layer-password-file ./password.txt --video ./cover.mp4 --yes
+python -m cli --fuse-archive ./existing.zip --video ./cover.mp4 --output ./out
+python -m cli --extract-video-archive ./out/existing.mp4 --output ./restored
+```
+
+每套归档输出一个 MP4，内部压缩层仍可分卷。融合保留原视频的画面和声音，
+加密沿用归档密码。NestPack 可直接解包融合视频；外部工具与网盘在线预览的
+兼容性、已验证环境见[视频融合说明](使用说明.md#视频融合)。
 
 ## 🔐 密码与文件名
 

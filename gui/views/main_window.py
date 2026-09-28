@@ -55,6 +55,7 @@ class MainWindow(QMainWindow):
         self.source.paths_changed.connect(self._retemplate_default_layer_names)
         self.source.paths_changed.connect(self.update_summary)
         self.source.mode_changed.connect(self._on_mode_changed)
+        self.source.video_changed.connect(self._update_video_settings)
         self.layers.add_requested.connect(self.add_layer)
         self.layers.card_changed.connect(self.update_summary)
         self.layers.cards_changed.connect(self._on_cards_restructured)
@@ -168,6 +169,9 @@ class MainWindow(QMainWindow):
             self.source.mode() != COMPRESS_MODE_SEPARATE
         )
         self._retemplate_default_layer_names()
+
+    def _update_video_settings(self) -> None:
+        self.settings.set_video_fusion(self.source.video_check.isChecked())
 
     def add_layer(self) -> None:
         """「＋ 添加一层」：按第一个来源名生成默认层并追加卡片。"""

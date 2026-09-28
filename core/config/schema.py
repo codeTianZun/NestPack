@@ -100,9 +100,21 @@ def _build_app_config(
     disguise_extension: str,
 ) -> AppConfig:
     """按已解析的必填字段组装 AppConfig，布尔开关在此统一补默认值。"""
+    video_path = raw_config.get("video_path", "")
+    source_videos = raw_config.get("source_video_paths", {})
+    if not isinstance(video_path, str):
+        raise ConfigError("配置.video_path 必须是字符串")
+    if not isinstance(source_videos, dict) or not all(
+        isinstance(source, str) and isinstance(video, str)
+        for source, video in source_videos.items()
+    ):
+        raise ConfigError("配置.source_video_paths 必须是来源路径到视频路径的对象")
     return AppConfig(
         winrar_path=winrar_path,
         sevenzip_path=sevenzip_path,
+        video_fusion=optional_boolean(raw_config, "video_fusion", "配置", False),
+        video_path=video_path.strip(),
+        source_video_paths={source: video.strip() for source, video in source_videos.items()},
         source_path=source_paths[0] if source_paths else "",
         source_paths=source_paths,
         compress_mode=compress_mode,

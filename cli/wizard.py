@@ -43,6 +43,10 @@ def print_task_settings(config: AppConfig) -> None:
         print(f"  来源：{source}")
     print(f"  输出：{config.output_directory or '尚未设置'}")
     print(f"  打包：{'分别打包' if config.compress_mode == 'separate' else '合并打包'}")
+    if config.video_fusion:
+        print(f"  视频融合：默认 {config.video_path or '尚未设置'}")
+        for source, video in config.source_video_paths.items():
+            print(f"    {source} → {video}")
     for index, layer in enumerate(config.layers, start=1):
         state = "已设置" if layer.password else "待补充" if layer.password_set else "无"
         print(
@@ -315,6 +319,7 @@ def edit_config(config: AppConfig) -> AppConfig:
                 5: "归档与保存选项",
                 6: "隐私选项",
                 7: "工具路径与界面",
+                8: "视频融合与载体选择",
                 0: "完成编辑",
             },
             default=0,
@@ -343,6 +348,27 @@ def edit_config(config: AppConfig) -> AppConfig:
             config = _edit_switches(config, PRIVACY_SETTINGS, privacy=True)
         elif choice == 7:
             config = _edit_tools(config)
+        elif choice == 8:
+            config = _edit_video(config)
+
+
+def _edit_video(config: AppConfig) -> AppConfig:
+    """设置默认载体及按来源覆盖的视频，空专用路径使用默认值。"""
+    enabled = ask_yes_no("最外层融合为 MP4 视频", default=config.video_fusion)
+    if not enabled:
+        return replace(config, video_fusion=False)
+    raw = input(f"默认 MP4 视频（回车保留 {config.video_path or '空'}）：").strip()
+    video = str(normalize_user_path(raw)) if raw else config.video_path
+    overrides = dict(config.source_video_paths)
+    if config.compress_mode == "separate" and ask_yes_no("是否按来源分别指定视频"):
+        for source in config.effective_source_paths():
+            current = overrides.get(source, "使用默认视频")
+            raw = input(f"{source} 的 MP4（回车保留 {current}，- 使用默认）：").strip()
+            if raw == "-":
+                overrides.pop(source, None)
+            elif raw:
+                overrides[source] = str(normalize_user_path(raw))
+    return replace(config, video_fusion=True, video_path=video, source_video_paths=overrides)
 
 
 def initialize_config(

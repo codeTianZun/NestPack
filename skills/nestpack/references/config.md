@@ -53,6 +53,11 @@ zip 层时解析；7z 家族工具可用 7z.exe / 7za.exe / 7zr.exe / 7zz / 7z�
 - `compress_mode`：`"combined"`（默认，全部来源合并压成一个压缩包）
   或 `"separate"`（每个来源分别压成自己的压缩包，输出目录下按来源名
   分目录）。
+- `video_fusion`：布尔值，默认 false。启用后最外层归档与载体融合为单个 MP4；
+  该层的 `volume_size` 为 null，内部层可分卷。
+- `video_path`：默认 MP4 载体路径，默认空字符串。
+- `source_video_paths`：来源路径到专用 MP4 路径的对象，默认 `{}`；
+  separate 模式按来源覆盖默认视频，combined 模式使用默认视频。
 
 每层（`layers[]`）：
 
@@ -97,6 +102,8 @@ zip 层时解析；7z 家族工具可用 7z.exe / 7za.exe / 7zr.exe / 7zz / 7z�
   只保留最外层，省磁盘。
 
 相对路径以 JSON 配置文件所在目录为基准。
+视频路径与来源覆盖表的键和值同样以该目录为基准。融合成品使用 `.mp4`
+后缀，原归档格式及密码保持原有层设置。
 
 ## 推荐组合
 

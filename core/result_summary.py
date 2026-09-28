@@ -106,6 +106,7 @@ def build_manifest(
                     "password": settings.password if include_passwords else "",
                     "recovery_percent": settings.recovery_percent,
                     "volume_size": settings.volume_size,
+                    "video_path": str(layer.plan.video) if layer.plan.video else None,
                 }
             )
         manifest_groups.append(
@@ -148,6 +149,7 @@ def build_plan_manifest(plan: CompressionPlan) -> dict[str, Any]:
                     "recovery_percent": settings.recovery_percent,
                     "compression_level": settings.compression_level,
                     "volume_size": settings.volume_size,
+                    "video_path": str(layer.video) if layer.video else None,
                 }
             )
         manifest_groups.append(
@@ -171,6 +173,7 @@ def build_plan_manifest(plan: CompressionPlan) -> dict[str, Any]:
         "overwrite_existing": config.overwrite_existing,
         "delete_inner_after_verify": config.delete_inner_after_verify,
         "disguise_outer_extension": config.disguise_outer_extension,
+        "video_fusion": config.video_fusion,
         "randomize_layer_names": config.randomize_layer_names,
         "warnings": list(plan.warnings),
         "groups": manifest_groups,

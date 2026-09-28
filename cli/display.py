@@ -78,6 +78,8 @@ def print_config_summary(plan: CompressionPlan) -> None:
         if len(plan.tasks) > 1:
             print(f"来源：{task.sources[0].name}")
         for layer_number, planned in enumerate(task.layers, start=1):
+            if planned.video is not None:
+                print(f"  载体视频：{planned.video}")
             layer = planned.config
             recovery = (
                 f"{layer.recovery_percent}%" if layer.recovery_percent is not None else "关闭"

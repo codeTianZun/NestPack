@@ -52,6 +52,9 @@ python3 -m cli --config /data/task.json --yes --non-interactive --json
 | `--rar-path` / `--sevenzip-path` | 工具路径或 auto，压缩和解包都可用 |
 | `--save-config PATH` | 保存本次配置，使用绝对路径，按 persist_passwords 决定密码落盘 |
 | `--disguise-extension .bin` | 指定并启用最外层扩展名调整，显式布尔参数优先 |
+| `--video MP4` | 设置默认载体并启用最外层视频融合 |
+| `--source-video SOURCE MP4` | 分别打包时覆盖指定来源的载体，可重复 |
+| `--video-fusion` / `--no-video-fusion` | 显式启用或停用本次视频融合 |
 
 直接创建任务需来源与输出，省略层参数时使用一层 RAR。直接任务的覆盖和
 运行前确认默认关闭，WinRAR 界面默认关闭；自检、删除中间层、保存配置时
@@ -62,6 +65,13 @@ python3 -m cli --config /data/task.json --yes --non-interactive --json
 `randomize-layer-names`、`hide-source-name`、`disguise-outer-extension`、
 `randomize-timestamps`、`verify-after-compress`、`cleanup-on-failure`、
 `persist-passwords`、`delete-inner-after-verify`。
+
+视频融合生成单个 `.mp4` 最外层成品；内部层可以分卷。已有单文件归档可
+使用 `--fuse-archive archive --video carrier.mp4 --output out` 独立融合；
+`--extract-video-archive fused.mp4 --output out` 提取原始归档。
+两种独立模式的 `--output` 是目录，`--overwrite-existing` 控制同名覆盖，
+`--json` 成功结果的 `mode` 分别为 `video_fusion` / `video_extract`，
+`files` 为产物路径列表。`--unpack fused.mp4` 直接解开融合视频内的归档。
 
 配置中的路径以配置文件目录为基准；命令行明确提供的路径按调用目录解析。
 参数覆盖与随机层名只影响本次任务，只有 `--save-config` 才写配置；dry-run
@@ -97,7 +107,8 @@ python3 -m cli --config /data/task.json --yes --non-interactive --json
       "files": ["/data/out/outer.rar"],
       "password": "example-password",
       "recovery_percent": null,
-      "volume_size": null
+      "volume_size": null,
+      "video_path": null
     }],
     "final": ["/data/out/outer.rar"]
   }]
@@ -115,6 +126,8 @@ python3 -m cli --config /data/task.json --yes --non-interactive --json
 `compress_mode`、`warnings`、`groups`。层结构为 `name`、`format`、
 `expected_files`、`password_set`、`recovery_percent`、`compression_level`、
 `volume_size`；分卷仅列首卷，密码只提供标记。
+融合任务的计划顶层另有 `video_fusion`，各层的 `video_path` 为实际载体
+绝对路径，普通层为 null；成品路径在 `final` 与 `expected_files` 中展示。
 
 解包成功：`status: "ok"`、`mode: "unpack"`、`output_dir` 和 `entries` 数组。
 初始化成功：`mode: "init"`、`config_path`。安装成功：`mode: "install"`、

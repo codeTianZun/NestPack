@@ -87,6 +87,7 @@ BOOLEAN_OPTIONS = {
     "cleanup_on_failure": "任务失败时清理本次产物",
     "persist_passwords": "保存配置时保留密码，默认开启",
     "delete_inner_after_verify": "自检通过后删除中间层，默认开启",
+    "video_fusion": "将最外层单文件归档融合为 MP4 视频",
 }
 
 
@@ -127,6 +128,15 @@ def create_parser() -> ArgumentParser:
         help="rar 显示官网安装指引，7z 自动安装，all 执行两项（默认）",
     )
     parser.add_argument("--unpack", type=Path, metavar="文件", help="逐层解包最外层归档")
+    parser.add_argument("--fuse-archive", type=Path, metavar="压缩包", help="将已有归档与视频融合")
+    parser.add_argument(
+        "--extract-video-archive", type=Path, metavar="视频", help="从融合视频提取原始归档"
+    )
+    parser.add_argument("--video", dest="video_path", metavar="MP4", help="载体视频，并启用融合")
+    parser.add_argument(
+        "--source-video", dest="source_video_paths", action="append", nargs=2,
+        metavar=("来源", "MP4"), help="分别打包时为指定来源覆盖默认视频，可重复",
+    )
     parser.add_argument(
         "--output", type=Path, metavar="目录", help="本次输出目录，相对当前工作目录解析"
     )
@@ -223,6 +233,8 @@ def compression_arguments_present(
             "compress_mode",
             "disguise_extension",
             "save_config",
+            "video_path",
+            "source_video_paths",
             *BOOLEAN_OPTIONS,
         )
     ) or (include_tools and any((arguments.winrar_path, arguments.sevenzip_path)))
@@ -245,6 +257,8 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
                 arguments.init,
                 arguments.install_tools,
                 arguments.unpack,
+                arguments.fuse_archive,
+                arguments.extract_video_archive,
                 arguments.output,
                 arguments.json,
                 arguments.dry_run,
@@ -255,8 +269,20 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
             )
         ):
             parser.error("--menu 仅可搭配 --config 指定菜单中的配置文件")
-    if sum((arguments.init, arguments.unpack is not None, arguments.install_tools is not None)) > 1:
-        parser.error("--init、--unpack 和 --install-tools 只能选择一个")
+    if sum((arguments.init, arguments.unpack is not None, arguments.install_tools is not None,
+            arguments.fuse_archive is not None, arguments.extract_video_archive is not None)) > 1:
+        parser.error("初始化、解包、工具安装、独立视频融合与归档提取只能选择一种模式")
+    if arguments.fuse_archive is not None or arguments.extract_video_archive is not None:
+        if any(getattr(arguments, key) is not None for key in (
+            "source", "layer_specs", "compress_mode", "disguise_extension", "save_config",
+            "source_video_paths", "winrar_path", "sevenzip_path",
+            *(key for key in BOOLEAN_OPTIONS if key != "overwrite_existing"),
+        )) or arguments.config is not None or arguments.dry_run or unpack_options:
+            parser.error("独立视频融合与归档提取不接收压缩层、配置或解包参数")
+        if arguments.fuse_archive is not None and not arguments.video_path:
+            parser.error("--fuse-archive 需要通过 --video 指定载体 MP4")
+        if arguments.extract_video_archive is not None and arguments.video_path is not None:
+            parser.error("--extract-video-archive 已指定融合文件，无需 --video")
     if arguments.install_tools is not None and any(
         (
             arguments.output,

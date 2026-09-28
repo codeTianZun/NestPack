@@ -94,7 +94,7 @@ def _run_task(
     with task_source(task, config.hide_source_name, cancellation) as source:
         return run_layer_stack(
             task, config, source, cancellation, output_cb,
-            original_sources=plan.sources,
+            original_sources=plan.protected_inputs,
             on_layer_started=started, on_layer_completed=completed,
         )
 

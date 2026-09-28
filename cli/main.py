@@ -12,6 +12,7 @@ from cli.configuration import configuration_from_arguments
 from cli.display import classify_error, print_banner, print_json
 from cli.prompts import require_interactive_tty, stdin_is_interactive
 from cli.unpack_cmd import run_unpack
+from cli.video_cmd import run_video
 from cli.wizard import initialize_config
 from core.cancellation import CancelledError
 from core.filesystem import normalize_user_path
@@ -68,6 +69,8 @@ def _run(arguments: argparse.Namespace) -> int:
         return 0
     if arguments.unpack is not None:
         return run_unpack(arguments)
+    if arguments.fuse_archive is not None or arguments.extract_video_archive is not None:
+        return run_video(arguments)
     if arguments.init:
         if arguments.non_interactive:
             raise UsageError(

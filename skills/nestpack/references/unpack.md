@@ -28,7 +28,8 @@ python -m cli --unpack 最外层文件 [--password 密码 ...] [--password-file 
 
 ## 解包行为
 
-- 按文件头识别格式（RAR / 7z / ZIP；.bin 等伪装扩展名无需改回）；
+- 按文件头识别格式（RAR / 7z / ZIP；.bin 等伪装扩展名无需改回），
+  NestPack 融合 MP4 会先提取并校验原归档，再按原层数逐层解包；
   每层自动选用对应工具（zip 层与 7z 层共用 7-Zip 命令行）；
   分卷从第 1 卷开始。
 - 伪装扩展名的分卷套（`set.part1.bin`… / `set.bin.001`…，

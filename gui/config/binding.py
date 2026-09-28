@@ -30,6 +30,7 @@ class ConfigBinding(QObject):
         self._settings = settings
         for signal in (
             source.paths_changed, source.mode_changed, source.output_changed,
+            source.video_changed,
             layers.card_changed, layers.cards_changed, settings.changed,
         ):
             signal.connect(self.changed)

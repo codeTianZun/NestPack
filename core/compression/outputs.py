@@ -16,6 +16,8 @@ from .models import LayerPlan
 def existing_outputs(planned: LayerPlan) -> tuple[Path, ...]:
     """枚举该层已有的正式产物，包含旧分卷套的全部卷。"""
     backend = get_backend(planned.config.format)
+    if planned.video is not None:
+        return tuple(path for path in planned.output_paths() if path.exists())
     base = planned.destination
     if planned.disguise_extension is not None:
         base = backend.disguise_name(base, planned.disguise_extension)
@@ -48,7 +50,11 @@ def check_output_paths(
 ) -> None:
     """按覆盖策略检查整层目标，在替换任何文件前报告冲突。"""
     for destination in destinations:
-        if destination in protected_inputs:
+        if destination in protected_inputs or (
+            destination.exists() and any(
+                source.exists() and destination.samefile(source) for source in protected_inputs
+            )
+        ):
             raise RuntimeError(f"输出压缩包不能覆盖输入文件：{destination}")
         if not destination.exists():
             continue

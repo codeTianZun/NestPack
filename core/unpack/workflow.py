@@ -10,6 +10,7 @@ from pathlib import Path
 from core.backends import detect_archive_format, get_backend
 from core.cancellation import Cancellation
 from core.models import FORMAT_7Z, FORMAT_ZIP
+from core.video import extract_video_archive, inspect_video_archive
 from platforms import get_archive_platform
 
 from .content import PADDING_NAME_PATTERN, classify_extracted
@@ -67,9 +68,12 @@ def unpack_archive(
     cancellation.check()
     archive = archive.resolve()
     outer_format = detect_archive_format(archive)
+    video_record = inspect_video_archive(archive, cancellation) if outer_format is None else None
+    if video_record is not None:
+        outer_format = video_record.format
     if outer_format is None:
         raise RuntimeError(
-            "不是受支持的压缩包（内容无 RAR/7z/ZIP 文件头，"
+            "不是受支持的压缩包或 NestPack 视频融合文件（内容无 RAR/7z/ZIP 文件头，"
             f"伪装扩展名已按内容识别）：{archive}"
         )
     outer_backend = get_backend(outer_format)
@@ -79,6 +83,11 @@ def unpack_archive(
         raise RuntimeError(f"分卷压缩包请从第一卷开始解包（如 {first_volume}）")
 
     with unpack_workspace(output_dir, cancellation, output_cb) as work:
+        if video_record is not None:
+            archive = extract_video_archive(
+                archive, work / f"video_payload.{video_record.format}",
+                cancellation=cancellation, output_cb=output_cb,
+            )
         # 伪装分卷套：改回标准卷名后再解（见 find_disguised_volume_set）。
         disguised_set = find_disguised_volume_set(archive)
         if disguised_set is not None:

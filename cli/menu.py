@@ -10,6 +10,7 @@ from cli.compress_cmd import CompressionOptions, run_compress
 from cli.configuration import absolute_config, validate_config, write_task_config
 from cli.prompts import ask_menu, ask_output_directory, ask_source_paths, ask_yes_no, read_password
 from cli.unpack_cmd import run_unpack
+from cli.video_cmd import run_video
 from cli.wizard import (
     ask_config_path,
     create_config_interactively,
@@ -165,6 +166,25 @@ def _install_menu() -> None:
         install_requested_tools({1: "rar", 2: "7z", 3: "all"}[choice])
 
 
+def _video_menu() -> None:
+    choice = ask_menu("视频融合", {1: "融合已有归档与 MP4", 2: "从融合视频提取原归档", 0: "返回"})
+    if choice == 0:
+        return
+    raw = input("已有压缩包路径：" if choice == 1 else "融合视频路径：").strip()
+    if not raw:
+        raise CancelledError("已返回主菜单。")
+    source = normalize_user_path(raw)
+    argv = ["--fuse-archive" if choice == 1 else "--extract-video-archive", str(source)]
+    if choice == 1:
+        video = input("载体 MP4 路径：").strip()
+        argv.extend(["--video", video])
+    output = ask_output_directory(source.parent / "video_output")
+    argv.extend(["--output", str(output)])
+    if ask_yes_no("允许覆盖输出目录中的同名成品"):
+        argv.append("--overwrite-existing")
+    run_video(parse_arguments(argv))
+
+
 def run_menu(default_config: Path | None = None) -> int:
     """无参数启动先展示菜单，在用户选择后才加载配置或检查来源。"""
     selected_config = default_config or DEFAULT_CONFIG_PATH
@@ -179,6 +199,7 @@ def run_menu(default_config: Path | None = None) -> int:
                     4: "修改已有配置",
                     5: "检测 / 安装压缩工具",
                     6: "参数调用帮助",
+                    7: "视频融合 / 提取原归档",
                     0: "退出",
                 },
             )
@@ -205,6 +226,8 @@ def run_menu(default_config: Path | None = None) -> int:
                 _install_menu()
             elif choice == 6:
                 create_parser().print_help()
+            elif choice == 7:
+                _video_menu()
         except EOFError:
             print("\n输入已结束，已退出。")
             return 0

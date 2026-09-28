@@ -159,6 +159,15 @@ class SettingsDialog(QDialog):
             )
         )
 
+    def set_video_fusion(self, enabled: bool) -> None:
+        """视频融合产物固定使用 MP4 扩展名。"""
+        self.disguise_check.setEnabled(not enabled)
+        self.disguise_extension_edit.setEnabled(not enabled)
+        self.disguise_check.setToolTip(
+            "视频融合成品使用 .mp4 扩展名。" if enabled
+            else "最外层压缩包使用指定的扩展名，解包时按内容识别。"
+        )
+
     def _connect_changed_signals(self) -> None:
         """所有设置控件的变化统一汇聚成 changed 信号，供主窗口接自动保存。"""
         self.disguise_extension_edit.textChanged.connect(self.changed.emit)

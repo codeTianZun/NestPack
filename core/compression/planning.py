@@ -16,6 +16,7 @@ from core.models import (
     AppConfig,
     ConfigError,
 )
+from core.video import validate_video
 from platforms import get_archive_platform
 
 from .models import CompressionPlan, LayerPlan, TaskPlan
@@ -68,6 +69,7 @@ def _plan_task(
     sources: tuple[Path, ...],
     output_directory: Path,
     tools: dict[str, Path],
+    video: Path | None = None,
 ) -> TaskPlan:
     """确定一套嵌套压缩包的层参数与输出命名。"""
     layers: list[LayerPlan] = []
@@ -89,6 +91,7 @@ def _plan_task(
                 config=replace(layer, archive_name=name),
                 tool=tools[layer.format],
                 destination=(output_directory / name).resolve(),
+                video=video if index == len(config.layers) - 1 else None,
                 disguise_extension=(
                     config.disguise_extension
                     if config.disguise_outer_extension and index == len(config.layers) - 1
@@ -129,6 +132,26 @@ def build_compression_plan(
     tools = _resolve_tools(config, config_directory)
     sources = _resolve_sources(config, config_directory)
     output_directory = normalize_user_path(config.output_directory, config_directory)
+    videos: dict[Path, Path] = {}
+    if config.video_fusion:
+        if config.layers[-1].volume_size:
+            raise ConfigError("视频融合的最外层应为单文件归档，请将分卷设置放在内部压缩层。")
+        overrides = {
+            normalize_user_path(source, config_directory): video
+            for source, video in config.source_video_paths.items()
+        }
+        checked: set[Path] = set()
+        for source in sources:
+            raw_video = config.video_path
+            if config.compress_mode == COMPRESS_MODE_SEPARATE:
+                raw_video = overrides.get(source, "") or raw_video
+            if not raw_video:
+                raise ConfigError(f"请为视频融合选择默认视频或来源专用视频：{source}")
+            video = normalize_user_path(raw_video, config_directory)
+            if video not in checked:
+                validate_video(video)
+                checked.add(video)
+            videos[source] = video
 
     tasks: list[TaskPlan] = []
     if config.compress_mode == COMPRESS_MODE_SEPARATE:
@@ -139,11 +162,12 @@ def build_compression_plan(
                 raise ConfigError(f"多个来源去除后缀后同名：{source.name}，请区分来源名称")
             seen_stems.add(stem)
             task_output = (output_directory / source.stem).resolve()
-            tasks.append(_plan_task(config, (source,), task_output, tools))
+            tasks.append(_plan_task(config, (source,), task_output, tools, videos.get(source)))
     else:
-        tasks.append(_plan_task(config, sources, output_directory, tools))
+        tasks.append(_plan_task(config, sources, output_directory, tools, videos.get(sources[0])))
 
-    _validate_outputs(tasks, sources)
+    protected_inputs = (*sources, *videos.values())
+    _validate_outputs(tasks, protected_inputs)
     for task in tasks:
         ancestor = task.output_directory
         while not ancestor.exists():
@@ -151,7 +175,7 @@ def build_compression_plan(
         if not ancestor.is_dir():
             raise ConfigError(f"输出目录或其父路径不是文件夹：{ancestor}")
         for layer in task.layers:
-            check_output_paths(existing_outputs(layer), config.overwrite_existing, sources)
+            check_output_paths(existing_outputs(layer), config.overwrite_existing, protected_inputs)
 
     return CompressionPlan(
         config=config,
@@ -160,5 +184,9 @@ def build_compression_plan(
         tasks=tuple(tasks),
         winrar=tools.get(FORMAT_RAR),
         sevenzip=tools.get(FORMAT_7Z),
-        warnings=disk_warnings(config, list(sources), output_directory),
+        warnings=disk_warnings(
+            config, list(sources), output_directory,
+            video_bytes=sum(task.layers[-1].video.stat().st_size for task in tasks
+                            if task.layers[-1].video is not None),
+        ),
     )

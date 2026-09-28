@@ -27,6 +27,7 @@ from gui.views.tool_dialogs import (
     show_rar_install_guide,
 )
 from gui.views.unpack_dialog import UnpackDialog
+from gui.views.video_dialog import VideoDialog
 
 
 class TabNavigationBlocker(QObject):
@@ -67,6 +68,7 @@ class GuiApplication(QObject):
         window.side.run_requested.connect(self.start_compression)
         window.side.cancel_requested.connect(self.cancel_compression)
         window.side.unpack_requested.connect(self.open_unpack_dialog)
+        window.side.video_requested.connect(self.open_video_dialog)
         window.settings.runtime.install_requested.connect(self.install_local_tools)
         window.settings.runtime.rar_guide_requested.connect(
             lambda: show_rar_install_guide(self.window)
@@ -239,6 +241,12 @@ class GuiApplication(QObject):
             preset_candidates=self.window.layers.passwords(),
         )
         dialog.exec()
+
+    def open_video_dialog(self) -> None:
+        if self.tools.active or self.compression.active:
+            show_info(self.window, "任务正在运行", "请等待当前任务完成后再处理视频。")
+            return
+        VideoDialog(self.window, self.config.path.parent).exec()
 
     def close_window(self, event: QCloseEvent) -> None:
         """安装结束后允许关闭，压缩中先确认取消并等待资源回收。"""

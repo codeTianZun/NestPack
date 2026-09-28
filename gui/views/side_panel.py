@@ -44,6 +44,7 @@ class SidePanel(ScrollArea):
     cancel_requested = Signal()
     save_requested = Signal()
     unpack_requested = Signal()
+    video_requested = Signal()
     open_output_requested = Signal()
 
     def __init__(self) -> None:
@@ -113,6 +114,9 @@ class SidePanel(ScrollArea):
         secondary_row.addWidget(self.unpack_button)
         secondary_row.addWidget(self.open_output_button)
         action_layout.addLayout(secondary_row)
+        self.video_button = PushButton("视频融合 / 提取原归档…")
+        self.video_button.clicked.connect(self.video_requested)
+        action_layout.addWidget(self.video_button)
         column.addWidget(action_card)
 
         # ---- 压缩过程日志卡片 ----
@@ -157,6 +161,7 @@ class SidePanel(ScrollArea):
         """更新压缩期间的动作展示。"""
         self.run_button.setVisible(not active)
         self.save_button.setEnabled(not active)
+        self.video_button.setEnabled(not active)
         self.cancel_button.setVisible(active)
         self.cancel_button.setEnabled(True)
 
@@ -164,6 +169,7 @@ class SidePanel(ScrollArea):
         """更新安装期间的可用动作。"""
         self.run_button.setEnabled(not active)
         self.unpack_button.setEnabled(not active)
+        self.video_button.setEnabled(not active)
 
     def show_cancelling(self) -> None:
         """取消请求发出后等待任务结束。"""

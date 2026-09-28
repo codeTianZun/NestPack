@@ -13,13 +13,14 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QWidget,
 )
-from qfluentwidgets import FluentIcon, ListWidget, PushButton, ToolButton
+from qfluentwidgets import CheckBox, FluentIcon, ListWidget, PushButton, ToolButton
 
 from core.filesystem import normalize_user_path
 from core.models import COMPRESS_MODE_COMBINED, COMPRESS_MODE_SEPARATE, AppConfig
 from gui.appearance.theme import SPACE_SM
 from gui.config.paths import selection_directory
 from gui.views.file_dialog import pick_directory, pick_sources
+from gui.views.video_settings import VideoSettingsDialog
 from gui.views.widgets import (
     FIELD_LABEL_WIDTH,
     ComboBox,
@@ -79,16 +80,50 @@ class SourcePanel(SectionCard):
     mode_changed = Signal()
     #: 输出目录文本被编辑。
     output_changed = Signal()
+    video_changed = Signal()
 
     def __init__(self) -> None:
         super().__init__(
             "任务来源", "选择一个或多个文件/文件夹，再选择打包方式与输出位置。"
         )
         self._config_dir = Path.cwd()
+        self._video_path = ""
+        self._source_video_paths: dict[str, str] = {}
         self._build_list()
         self._build_buttons()
         self._build_mode_row()
         self._build_output_row()
+        self._build_video_row()
+
+    def _build_video_row(self) -> None:
+        row = QHBoxLayout()
+        self.video_check = CheckBox("最外层融合为 MP4")
+        self.video_check.toggled.connect(lambda _checked: self.video_changed.emit())
+        row.addWidget(self.video_check)
+        self.video_label = QLabel("尚未选择视频")
+        self.video_label.setObjectName("muted")
+        row.addWidget(self.video_label, 1)
+        button = PushButton("视频设置…")
+        button.clicked.connect(self._choose_videos)
+        row.addWidget(button)
+        self.body_layout.addLayout(row)
+
+    def _choose_videos(self) -> None:
+        dialog = VideoSettingsDialog(
+            self, self.paths(), self._video_path, self._source_video_paths, self._config_dir,
+            separate=self.mode() == COMPRESS_MODE_SEPARATE,
+        )
+        if dialog.exec():
+            self._video_path, self._source_video_paths = dialog.values()
+            self.video_check.setChecked(True)
+            self._update_video_label()
+            self.video_changed.emit()
+
+    def _update_video_label(self) -> None:
+        default = Path(self._video_path).name if self._video_path else "未设置默认视频"
+        count = len(self._source_video_paths)
+        self.video_label.setText(f"{default} · {count} 个专用视频" if count else default)
+        self.video_label.setToolTip(self._video_path)
 
     def _build_list(self) -> None:
         """来源列表：支持多选与拖放；路径数据与显示分离，行尾提供删除按钮。"""
@@ -172,6 +207,8 @@ class SourcePanel(SectionCard):
         return replace(
             config, source_path=paths[0] if paths else "", source_paths=paths,
             output_directory=output, compress_mode=self.mode(),
+            video_fusion=self.video_check.isChecked(), video_path=self._video_path,
+            source_video_paths=dict(self._source_video_paths),
         )
 
     def apply(self, config: AppConfig) -> None:
@@ -179,6 +216,10 @@ class SourcePanel(SectionCard):
         self.set_paths(config.effective_source_paths())
         self.set_mode(config.compress_mode)
         self.set_output_directory(config.output_directory)
+        self._video_path = config.video_path
+        self._source_video_paths = dict(config.source_video_paths)
+        self.video_check.setChecked(config.video_fusion)
+        self._update_video_label()
 
     def set_config_directory(self, directory: Path) -> None:
         """选择路径时以当前配置目录为基准。"""
