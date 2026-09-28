@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ctypes
 import sys
 from pathlib import Path
 from typing import Literal
@@ -406,6 +407,8 @@ def main() -> int:
     """创建 Windows 应用并进入事件循环。"""
     if sys.platform != "win32":
         raise RuntimeError("NestPack 图形界面仅支持 Windows。")
+    if not getattr(sys, "frozen", False):
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("NestPack.GUI")
     logger = setup_logging("gui")
     try:
         app = QApplication(sys.argv)

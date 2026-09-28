@@ -73,7 +73,7 @@ _EXCLUDED_QT_MODULES = [
 ]
 
 # 用不到的 Qt DLL 与插件：QML/Quick/Pdf/VirtualKeyboard/Network/OpenGL、
-# OpenGL 软件渲染器、OpenSSL，以及除 windows 平台插件外的全部插件。
+# OpenGL 软件渲染器、OpenSSL，以及 Windows 平台和 SVG 图标之外的插件。
 _UNWANTED_BINARIES = re.compile(
     r"(opengl32sw|libEGL|libGLESv2|d3dcompiler_\d+|"
     r"Qt6(Network|Pdf|Quick|Qml\w*|VirtualKeyboard|OpenGL)|"
@@ -81,7 +81,9 @@ _UNWANTED_BINARIES = re.compile(
     r"libcrypto-3|libssl-3)\.\w+$",
     re.IGNORECASE,
 )
-_KEEP_PLUGIN = re.compile(r"^PySide6[\\/]plugins[\\/]platforms[\\/]qwindows\.dll$")
+_KEEP_PLUGIN = re.compile(
+    r"^PySide6/plugins/(?:platforms/qwindows|imageformats/qsvg|iconengines/qsvgicon)\.dll$"
+)
 
 a = Analysis(
     ['@ENTRY@'],
@@ -97,7 +99,7 @@ a = Analysis(
     optimize=0,
 )
 if @SLIM@:
-    # 只保留 Windows 平台插件，其余插件全部剔除。
+    # 保留 Windows 平台插件与 Fluent SVG 图标所需插件。
     a.binaries = [
         e for e in a.binaries
         if not e[0].replace("\\", "/").startswith("PySide6/plugins/")
