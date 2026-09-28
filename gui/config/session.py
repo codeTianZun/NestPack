@@ -9,6 +9,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from core.config import load_config, randomized_layer_names, save_config
 from core.models import DEFAULT_CONFIG_PATH, AppConfig, ConfigError
 from gui.config.binding import ConfigBinding
+from gui.config.paths import freeze_config_paths
 from gui.config.storage import (
     create_default_config,
     is_blank_template,
@@ -81,13 +82,19 @@ class ConfigSession(QObject):
 
     def save(self, path: Path | None = None) -> None:
         """保存当前草稿，指定新路径时切换当前配置文件。"""
-        target = path if path is not None else self.path
+        target = path.resolve() if path is not None else self.path
+        config = self._binding.collect(strict=False)
+        moved = target.parent != self.path.parent
+        if moved:
+            config = freeze_config_paths(config, self.path.parent)
         target.parent.mkdir(parents=True, exist_ok=True)
-        self._write(target, self._binding.collect(strict=False))
+        self._write(target, config)
         self._timer.stop()
         self._dirty = False
         if path is not None:
             self._set_path(path)
+        if moved:
+            self.apply(config)
         self.status.emit(f"配置已保存：{target.name}")
 
     def collect(self) -> AppConfig:
@@ -103,6 +110,7 @@ class ConfigSession(QObject):
             self.apply(config)
         self._timer.stop()
         self._dirty = False
+        self.status.emit("本次配置已保存")
         return config
 
     def schedule_save(self) -> None:
@@ -110,6 +118,7 @@ class ConfigSession(QObject):
         if self._applying:
             return
         self._dirty = True
+        self.status.emit("待保存" if not self._paused else "任务结束后保存")
         if not self._paused:
             self._timer.start()
 
@@ -127,9 +136,11 @@ class ConfigSession(QObject):
             return
         try:
             self._write(self.path, self._binding.collect(strict=False))
-        except (ValueError, OSError):
+        except (ValueError, OSError) as error:
+            self.status.emit(f"尚未保存：{error}")
             return
         self._dirty = False
+        self.status.emit("已自动保存")
 
     def _set_path(self, path: Path) -> None:
         self.path = path.resolve()

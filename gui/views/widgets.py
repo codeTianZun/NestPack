@@ -11,12 +11,14 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QSizePolicy,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 from qfluentwidgets import ComboBox, LineEdit, ProgressBar, PushButton
 
-from gui.appearance.theme import SPACE_LG, SPACE_MD, SPACE_SM, SPACE_XS, apply_card_shadow
+from gui.appearance.theme import SPACE_MD, SPACE_SM, SPACE_XS
 
 # 路径行等行内标签的固定宽度，保证同一行内多个标签纵向对齐。
 FIELD_LABEL_WIDTH = 68
@@ -28,9 +30,8 @@ class SectionCard(QFrame):
     def __init__(self, title: str, subtitle: str = "") -> None:
         super().__init__()
         self.setObjectName("card")
-        apply_card_shadow(self)
         self.outer_layout = QVBoxLayout(self)
-        self.outer_layout.setContentsMargins(SPACE_LG, SPACE_MD, SPACE_LG, SPACE_MD)
+        self.outer_layout.setContentsMargins(0, 0, 0, 0)
         self.outer_layout.setSpacing(SPACE_MD)
 
         header = QHBoxLayout()
@@ -99,30 +100,48 @@ def path_row(
     return row
 
 
-def stat_box(value: str, caption: str) -> tuple[QFrame, QLabel]:
-    """任务概览中的统计小卡片。"""
-    frame = QFrame()
-    frame.setObjectName("statBox")
-    layout = QVBoxLayout(frame)
-    layout.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
-    layout.setSpacing(SPACE_XS)
-    value_label = QLabel(value)
-    value_label.setObjectName("statValue")
-    value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    caption_label = QLabel(caption)
-    caption_label.setObjectName("statCaption")
-    caption_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    layout.addWidget(value_label)
-    layout.addWidget(caption_label)
-    return frame, value_label
+class CollapsibleSection(QWidget):
+    """带摘要的可展开区域，展开状态只影响展示。"""
+
+    def __init__(self, title: str) -> None:
+        super().__init__()
+        self._title = title
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(SPACE_SM)
+        self.toggle = QToolButton()
+        self.toggle.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.toggle.setObjectName("sectionToggle")
+        self.toggle.setText(title)
+        self.toggle.setCheckable(True)
+        self.toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.toggle.setArrowType(Qt.ArrowType.RightArrow)
+        self.toggle.toggled.connect(self._set_expanded)
+        layout.addWidget(self.toggle)
+        self.body = QWidget()
+        self.body_layout = QVBoxLayout(self.body)
+        self.body_layout.setContentsMargins(0, 0, 0, 0)
+        self.body_layout.setSpacing(SPACE_SM)
+        self.body.hide()
+        layout.addWidget(self.body)
+
+    def _set_expanded(self, expanded: bool) -> None:
+        self.body.setVisible(expanded)
+        self.toggle.setArrowType(
+            Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow
+        )
+
+    def set_summary(self, summary: str) -> None:
+        self.toggle.setText(f"{self._title}  {summary}" if summary else self._title)
+        self.toggle.setToolTip(summary)
 
 
 __all__ = [
     "ComboBox",
+    "CollapsibleSection",
     "ProgressBar",
     "PushButton",
     "SectionCard",
     "path_row",
-    "stat_box",
     "text_field",
 ]

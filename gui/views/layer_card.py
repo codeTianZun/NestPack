@@ -6,7 +6,7 @@ import re
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QDialog,
     QFrame,
@@ -27,10 +27,10 @@ from qfluentwidgets import (
 from core.backends import get_backend
 from core.config.validation import parse_layer_config
 from core.models import FORMAT_7Z, FORMAT_RAR, FORMAT_ZIP, LayerConfig
-from gui.appearance.theme import SPACE_MD, SPACE_SM, SPACE_XS, apply_danger_style
+from gui.appearance.theme import SPACE_MD, SPACE_SM, SPACE_XS
 from gui.config.passwords import generate_password
 from gui.views.sfx_dialog import SfxSettingsDialog
-from gui.views.widgets import ComboBox, LineEdit, text_field
+from gui.views.widgets import CollapsibleSection, ComboBox, LineEdit, text_field
 
 # 压缩级别下拉选项：(显示名, 配置值)。
 COMPRESSION_LEVEL_OPTIONS = (
@@ -64,83 +64,46 @@ class LayerCard(QFrame):
         self.name_template = layer.name_template
         self.sfx_settings = layer.sfx
         self.config_dir = Path.cwd()
-        # 记录“该层本应设密码”的标记：persist_passwords=false 的配置
-        # 载入时密码为空但标记为真，用户手动改空密码输入框时清除。
         self.password_set_hint = layer.password_set or bool(layer.password)
-        # Preferred 允许卡片在字体/缩放变化时纵向扩展，避免内容被裁切。
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(SPACE_MD, SPACE_SM, SPACE_MD, SPACE_SM)
-        outer.setSpacing(SPACE_SM)
-
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
         header = QHBoxLayout()
         header.setSpacing(SPACE_SM)
-        self.number_label = QLabel("01")
+        self.number_label = QLabel()
         self.number_label.setObjectName("layerNumber")
-        self.number_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header.addWidget(self.number_label)
+        self.role_label = QLabel()
+        self.role_label.setObjectName("muted")
+        header.addWidget(self.role_label)
         header.addStretch(1)
-        level_hint = QLabel("级别")
-        level_hint.setObjectName("muted")
-        header.addWidget(level_hint)
-        self.level_combo = ComboBox()
-        for text, value in COMPRESSION_LEVEL_OPTIONS:
-            self.level_combo.addItem(text, userData=value)
-        index = self.level_combo.findData(layer.compression_level)
-        self.level_combo.setCurrentIndex(index if index >= 0 else 0)
-        self.level_combo.setToolTip(
-            "智能自动：第 1 层按内容探测，之后的层只存储不压缩。"
-        )
-        header.addWidget(self.level_combo)
         for icon, offset, tooltip in (
             (FluentIcon.UP, -1, "向内移动一层"),
             (FluentIcon.DOWN, 1, "向外移动一层"),
         ):
             button = ToolButton(icon)
             button.setToolTip(tooltip)
+            button.setAccessibleName(tooltip)
             button.clicked.connect(
-                lambda _checked=False, value=offset: self.move_requested.emit(
-                    self, value
-                )
+                lambda _checked=False, value=offset: self.move_requested.emit(self, value)
             )
             header.addWidget(button)
-        remove_button = PushButton("删除")
-        apply_danger_style(remove_button)
+        remove_button = ToolButton(FluentIcon.DELETE)
+        remove_button.setToolTip("删除这一层")
+        remove_button.setAccessibleName("删除这一层")
         remove_button.clicked.connect(lambda: self.remove_requested.emit(self))
         header.addWidget(remove_button)
         outer.addLayout(header)
+        body = QFrame()
+        body.setObjectName("layerBody")
+        body_layout = QVBoxLayout(body)
+        body_layout.setContentsMargins(SPACE_MD, SPACE_SM, SPACE_MD, SPACE_SM)
+        body_layout.setSpacing(SPACE_SM)
+        outer.addWidget(body)
 
-        # 字段分两行排布，避免窄窗口下各控件被挤压裁切。
-        # 两行总 stretch 均为 10，且 6/10 处为分界：name 右边界对齐 recovery
-        # 右边界、password 左边界对齐 volume 左边界，形成纵向网格对齐。
         fields = QHBoxLayout()
         fields.setSpacing(SPACE_SM)
-        name_box, self.name_edit, _name_line = text_field(
-            "压缩包名称", layer.archive_name
-        )
-        self.name_edit.setMinimumWidth(150)
-        fields.addWidget(name_box, 6)
-
-        password_box, self.password_edit, password_line = text_field(
-            "密码", layer.password
-        )
-        self.password_edit.setEchoMode(LineEdit.EchoMode.Password)
-        toggle = PushButton("显示")
-        toggle.setCheckable(True)
-        toggle.setToolTip("显示或隐藏密码")
-        toggle.toggled.connect(
-            lambda checked: self._toggle_password(toggle, checked)
-        )
-        password_line.addWidget(toggle)
-        generate_button = PushButton("随机")
-        generate_button.setToolTip("生成 16 位随机强密码并填入")
-        generate_button.clicked.connect(self._generate_password)
-        password_line.addWidget(generate_button)
-        fields.addWidget(password_box, 4)
-        outer.addLayout(fields)
-
-        fields_row2 = QHBoxLayout()
-        fields_row2.setSpacing(SPACE_SM)
         format_box = QWidget()
         format_layout = QVBoxLayout(format_box)
         format_layout.setContentsMargins(0, 0, 0, 0)
@@ -151,60 +114,72 @@ class LayerCard(QFrame):
         self.format_combo = ComboBox()
         for text, value in FORMAT_OPTIONS:
             self.format_combo.addItem(text, userData=value)
-        format_index = self.format_combo.findData(layer.format)
-        self.format_combo.setCurrentIndex(format_index if format_index >= 0 else 0)
-        self.format_combo.setToolTip(
-            "该层的压缩格式；rar 以外的格式没有恢复记录，"
-            "zip 层的密码仅支持 ASCII 字符（7-Zip 限制）。"
-        )
+        self.format_combo.setCurrentIndex(self.format_combo.findData(layer.format))
+        self.format_combo.setMinimumWidth(76)
         format_layout.addWidget(self.format_combo)
-        fields_row2.addWidget(format_box, 3)
+        fields.addWidget(format_box)
+        name_box, self.name_edit, _ = text_field("文件名", layer.archive_name)
+        self.name_edit.setMinimumWidth(130)
+        fields.addWidget(name_box, 3)
+        password_box, self.password_edit, password_line = text_field("密码", layer.password)
+        self.password_edit.setEchoMode(LineEdit.EchoMode.Password)
+        toggle = PushButton("显示")
+        toggle.setCheckable(True)
+        toggle.setFixedWidth(52)
+        toggle.toggled.connect(lambda checked: self._toggle_password(toggle, checked))
+        password_line.addWidget(toggle)
+        generate = PushButton("随机")
+        generate.setFixedWidth(52)
+        generate.setToolTip("生成 16 位随机强密码")
+        generate.clicked.connect(self._generate_password)
+        password_line.addWidget(generate)
+        fields.addWidget(password_box, 3)
+        body_layout.addLayout(fields)
 
+        self.details = CollapsibleSection("详细选项")
+        advanced = QHBoxLayout()
+        advanced.setSpacing(SPACE_SM)
+        level_box = QWidget()
+        level_layout = QVBoxLayout(level_box)
+        level_layout.setContentsMargins(0, 0, 0, 0)
+        level_layout.addWidget(QLabel("压缩级别"))
+        self.level_combo = ComboBox()
+        for text, value in COMPRESSION_LEVEL_OPTIONS:
+            self.level_combo.addItem(text, userData=value)
+        self.level_combo.setCurrentIndex(self.level_combo.findData(layer.compression_level))
+        self.level_combo.setToolTip("智能自动：第一层采样选择级别，之后的层只存储。")
+        level_layout.addWidget(self.level_combo)
+        advanced.addWidget(level_box, 1)
+        volume_box, self.volume_edit, _ = text_field("分卷大小", layer.volume_size or "")
+        self.volume_edit.setPlaceholderText("如 500m，留空不分卷")
+        advanced.addWidget(volume_box, 1)
         recovery_box = QWidget()
         recovery_layout = QVBoxLayout(recovery_box)
         recovery_layout.setContentsMargins(0, 0, 0, 0)
-        recovery_layout.setSpacing(SPACE_XS)
-        recovery_label = QLabel("恢复记录")
-        recovery_label.setObjectName("fieldLabel")
-        recovery_layout.addWidget(recovery_label)
-        recovery_line = QHBoxLayout()
-        recovery_line.setContentsMargins(0, 0, 0, 0)
-        recovery_line.setSpacing(SPACE_SM)
-        self.recovery_check = CheckBox("启用")
+        self.recovery_check = CheckBox("恢复记录")
+        self.recovery_check.setToolTip("恢复记录只适用于 RAR 格式。")
         self.recovery_check.setChecked(layer.recovery_percent is not None)
         self.recovery_spin = SpinBox()
         self.recovery_spin.setRange(1, 100)
         self.recovery_spin.setSuffix(" %")
         self.recovery_spin.setValue(layer.recovery_percent or 5)
-        recovery_line.addWidget(self.recovery_check)
-        recovery_line.addWidget(self.recovery_spin)
-        recovery_layout.addLayout(recovery_line)
-        fields_row2.addWidget(recovery_box, 3)
-
-        volume_box, self.volume_edit, _volume_line = text_field(
-            "分卷大小", layer.volume_size or ""
-        )
-        self.volume_edit.setPlaceholderText("如 500m，留空不分卷")
-        self.volume_edit.setToolTip(
-            "把本层压缩包切分成固定大小的分卷（同 WinRAR -v 参数），"
-            "适配网盘单文件大小限制；如 500k、100m、1g。"
-        )
-        fields_row2.addWidget(volume_box, 4)
-        outer.addLayout(fields_row2)
-
+        recovery_layout.addWidget(self.recovery_check)
+        recovery_layout.addWidget(self.recovery_spin)
+        advanced.addWidget(recovery_box, 1)
+        self.details.body_layout.addLayout(advanced)
         sfx_row = QHBoxLayout()
         self.sfx_check = CheckBox("RAR 自解压")
         self.sfx_check.setChecked(layer.sfx.enabled)
-        self.sfx_button = PushButton("自解压设置")
+        self.sfx_button = PushButton("自解压设置…")
         self.sfx_button.clicked.connect(self._edit_sfx)
         self.sfx_label = QLabel()
         self.sfx_label.setWordWrap(True)
         sfx_row.addWidget(self.sfx_check)
         sfx_row.addWidget(self.sfx_button)
         sfx_row.addWidget(self.sfx_label, 1)
-        outer.addLayout(sfx_row)
+        self.details.body_layout.addLayout(sfx_row)
+        body_layout.addWidget(self.details)
         self.sfx_check.toggled.connect(self._toggle_sfx)
-
         self.recovery_check.toggled.connect(self.recovery_spin.setEnabled)
         self.recovery_check.toggled.connect(self.changed)
         self.recovery_spin.valueChanged.connect(self.changed)
@@ -215,8 +190,20 @@ class LayerCard(QFrame):
         self.volume_edit.textChanged.connect(self.changed)
         self.level_combo.currentIndexChanged.connect(self.changed)
         self.format_combo.currentIndexChanged.connect(self._on_format_changed)
+        self.changed.connect(self._refresh_details)
         self._sync_recovery()
         self._sync_sfx()
+        self._refresh_details()
+
+    def _refresh_details(self) -> None:
+        parts = [self.level_combo.currentText()]
+        if self.volume_edit.text().strip():
+            parts.append("分卷 " + self.volume_edit.text().strip())
+        if self.recovery_check.isChecked():
+            parts.append(f"恢复记录 {self.recovery_spin.value()}%")
+        if self.sfx_settings.enabled:
+            parts.append(f"{self.sfx_settings.target.title()} 自解压")
+        self.details.set_summary("，".join(parts))
 
     def current_format(self) -> str:
         """当前选择的压缩格式（"rar" / "7z" / "zip"）。"""
@@ -291,19 +278,27 @@ class LayerCard(QFrame):
         )
         button.setText("隐藏" if visible else "显示")
 
-    def set_number(self, number: int) -> None:
-        self.number_label.setText(f"{number:02d}")
+    def set_number(self, number: int, total: int) -> None:
+        self.number_label.setText(f"第 {number} 层")
+        self.number_label.setProperty("outermost", number == total)
+        self.number_label.style().unpolish(self.number_label)
+        self.number_label.style().polish(self.number_label)
+        self.role_label.setText(
+            "打包来源（最外层）" if total == 1 else
+            "打包来源" if number == 1 else "最外层" if number == total else "包裹上一层"
+        )
 
     def set_name(self, name: str) -> None:
         """程序化设置文件名；不触发 textEdited，保留来源模板。"""
         self.name_edit.setText(name)
 
     def set_name_editable(self, editable: bool) -> None:
-        """separate 模式下文件名自动按来源生成，禁止手动修改。"""
+        """分别打包时展示配置中的固定名称或来源名称模板。"""
         self.name_edit.setEnabled(editable)
         self.name_edit.setToolTip(
-            "分别打包时每个来源以自己去掉后缀的名字生成压缩包，名称不可修改。"
-            if not editable
+            "分别打包时按每个来源展开名称模板。"
+            if not editable and self.name_template
+            else "各来源使用此固定文件名；切换到合并打包可编辑。" if not editable
             else "压缩包的文件名。"
         )
 

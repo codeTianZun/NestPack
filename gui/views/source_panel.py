@@ -1,4 +1,4 @@
-"""任务来源面板：来源选择、拖放、打包方式、输出目录及配置字段读写。"""
+"""任务来源面板：文件和目录选择、拖放与打包方式。"""
 
 from __future__ import annotations
 
@@ -13,20 +13,17 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QWidget,
 )
-from qfluentwidgets import CheckBox, FluentIcon, ListWidget, PushButton, ToolButton
+from qfluentwidgets import FluentIcon, ListWidget, PushButton, ToolButton
 
 from core.filesystem import normalize_user_path
 from core.models import COMPRESS_MODE_COMBINED, COMPRESS_MODE_SEPARATE, AppConfig
 from gui.appearance.theme import SPACE_SM
 from gui.config.paths import selection_directory
-from gui.views.file_dialog import pick_directory, pick_sources
-from gui.views.video_settings import VideoSettingsDialog
+from gui.views.file_dialog import pick_sources
 from gui.views.widgets import (
     FIELD_LABEL_WIDTH,
     ComboBox,
-    LineEdit,
     SectionCard,
-    path_row,
 )
 
 
@@ -72,58 +69,20 @@ class SourceDropList(ListWidget):
 
 
 class SourcePanel(SectionCard):
-    """「任务来源」卡片：来源列表、打包方式下拉与输出目录输入。"""
+    """管理来源列表及合并、分别打包方式。"""
 
     #: 来源集合更新完成，供层名联动、概览和配置保存使用。
     paths_changed = Signal()
     #: 打包方式下拉切换。
     mode_changed = Signal()
-    #: 输出目录文本被编辑。
-    output_changed = Signal()
-    video_changed = Signal()
 
     def __init__(self) -> None:
-        super().__init__(
-            "任务来源", "选择一个或多个文件/文件夹，再选择打包方式与输出位置。"
-        )
+        super().__init__("来源文件", "添加文件或文件夹，也可以拖入下方列表。")
         self._config_dir = Path.cwd()
-        self._video_path = ""
-        self._source_video_paths: dict[str, str] = {}
+        self._default_output = ""
         self._build_list()
         self._build_buttons()
         self._build_mode_row()
-        self._build_output_row()
-        self._build_video_row()
-
-    def _build_video_row(self) -> None:
-        row = QHBoxLayout()
-        self.video_check = CheckBox("最外层融合为 MP4")
-        self.video_check.toggled.connect(lambda _checked: self.video_changed.emit())
-        row.addWidget(self.video_check)
-        self.video_label = QLabel("尚未选择视频")
-        self.video_label.setObjectName("muted")
-        row.addWidget(self.video_label, 1)
-        button = PushButton("视频设置…")
-        button.clicked.connect(self._choose_videos)
-        row.addWidget(button)
-        self.body_layout.addLayout(row)
-
-    def _choose_videos(self) -> None:
-        dialog = VideoSettingsDialog(
-            self, self.paths(), self._video_path, self._source_video_paths, self._config_dir,
-            separate=self.mode() == COMPRESS_MODE_SEPARATE,
-        )
-        if dialog.exec():
-            self._video_path, self._source_video_paths = dialog.values()
-            self.video_check.setChecked(True)
-            self._update_video_label()
-            self.video_changed.emit()
-
-    def _update_video_label(self) -> None:
-        default = Path(self._video_path).name if self._video_path else "未设置默认视频"
-        count = len(self._source_video_paths)
-        self.video_label.setText(f"{default} · {count} 个专用视频" if count else default)
-        self.video_label.setToolTip(self._video_path)
 
     def _build_list(self) -> None:
         """来源列表：支持多选与拖放；路径数据与显示分离，行尾提供删除按钮。"""
@@ -132,6 +91,7 @@ class SourcePanel(SectionCard):
             QAbstractItemView.SelectionMode.ExtendedSelection
         )
         self.source_list.setMinimumHeight(88)
+        self.source_list.setMaximumHeight(144)
         self.source_list.setToolTip(
             "可添加多个文件或文件夹；支持从资源管理器拖入。"
         )
@@ -151,7 +111,7 @@ class SourcePanel(SectionCard):
         buttons.addWidget(add_button)
         buttons.addWidget(clear_button)
         buttons.addStretch(1)
-        self.body_layout.addLayout(buttons)
+        self.actions.addLayout(buttons)
 
     def _build_mode_row(self) -> None:
         """打包方式下拉：合并打包 / 分别打包。"""
@@ -172,54 +132,25 @@ class SourcePanel(SectionCard):
         row.addWidget(self.source_mode_combo, 1)
         self.body_layout.addLayout(row)
 
-    def _build_output_row(self) -> None:
-        """输出目录行：手动输入或选择目录。"""
-        self.output_edit = LineEdit()
-        # textChanged 带文本参数而 output_changed 无参，须经 lambda 丢弃。
-        self.output_edit.textChanged.connect(
-            lambda _text: self.output_changed.emit()
-        )
-        self.body_layout.addLayout(
-            path_row(
-                "输出目录",
-                self.output_edit,
-                (("选择目录", self._choose_output),),
-            )
-        )
-
-    def output_directory(self) -> str:
-        """当前输出目录输入。"""
-        return self.output_edit.text().strip()
-
-    def set_output_directory(self, path: str) -> None:
-        """回填输出目录。"""
-        self.output_edit.setText(path)
+    def set_default_output_directory(self, value: str) -> None:
+        """为文件选择器提供当前输出目录的快捷入口。"""
+        self._default_output = value
 
     def collect(self, config: AppConfig, *, strict: bool = True) -> AppConfig:
-        """把来源与输出字段写入配置快照。"""
+        """把来源与打包方式写入配置快照。"""
         paths = self.paths()
-        output = self.output_directory()
         if strict:
             if not paths:
                 raise ValueError("请选择原始文件或文件夹")
-            if not output:
-                raise ValueError("请选择输出目录")
         return replace(
             config, source_path=paths[0] if paths else "", source_paths=paths,
-            output_directory=output, compress_mode=self.mode(),
-            video_fusion=self.video_check.isChecked(), video_path=self._video_path,
-            source_video_paths=dict(self._source_video_paths),
+            compress_mode=self.mode(),
         )
 
     def apply(self, config: AppConfig) -> None:
         """回填本面板的配置字段。"""
         self.set_paths(config.effective_source_paths())
         self.set_mode(config.compress_mode)
-        self.set_output_directory(config.output_directory)
-        self._video_path = config.video_path
-        self._source_video_paths = dict(config.source_video_paths)
-        self.video_check.setChecked(config.video_fusion)
-        self._update_video_label()
 
     def set_config_directory(self, directory: Path) -> None:
         """选择路径时以当前配置目录为基准。"""
@@ -230,31 +161,16 @@ class SourcePanel(SectionCard):
         sources = self.paths()
         start = selection_directory(sources[-1] if sources else "", self._config_dir)
         paths = pick_sources(
-            self.window(), str(start), default_output=self._resolved_output(),
+            self.window(), str(start), default_output=(
+                str(normalize_user_path(self._default_output, self._config_dir))
+                if self._default_output else ""
+            ),
         )
         self.append_selection(paths)
 
     def append_selection(self, paths: list[str]) -> list[str]:
-        """追加用户选择的来源，并在输出目录为空时填入默认值。"""
-        added = self.add_paths(paths)
-        if added and not self.output_directory():
-            self.set_output_directory(str(Path(added[0]).parent))
-        return added
-
-    def _resolved_output(self) -> str:
-        raw = self.output_directory()
-        return str(normalize_user_path(raw, self._config_dir)) if raw else ""
-
-    def _choose_output(self) -> None:
-        """选择并回填输出目录。"""
-        raw = self._resolved_output()
-        start = selection_directory(raw, self._config_dir)
-        selected = pick_directory(
-            self.window(), title="选择输出目录", start_path=str(start),
-            default_output=raw,
-        )
-        if selected:
-            self.set_output_directory(selected)
+        """追加用户选择的来源，集合更新后通知主窗口。"""
+        return self.add_paths(paths)
 
     def paths(self) -> list[str]:
         """按列表顺序返回全部来源路径。"""
@@ -306,8 +222,8 @@ class SourcePanel(SectionCard):
             self.source_mode_combo.setCurrentIndex(index)
 
     def set_editable(self, editable: bool) -> None:
-        """压缩运行期间锁定来源面板：禁止增删来源、改打包方式与输出目录。"""
-        self.body.setEnabled(editable)
+        """按任务状态锁定来源及打包方式。"""
+        self.setEnabled(editable)
 
     def _create_item(self, path: str) -> None:
         """为单个来源创建一行：路径文字 + 行尾删除按钮。"""
@@ -319,7 +235,7 @@ class SourcePanel(SectionCard):
         row_layout = QHBoxLayout(row_widget)
         row_layout.setContentsMargins(6, 2, 4, 2)
         row_layout.setSpacing(6)
-        label = QLabel(path)
+        label = QLabel(Path(path).name or path)
         label.setToolTip(path)
         row_layout.addWidget(label, 1)
         remove_button = ToolButton(FluentIcon.DELETE)
@@ -329,6 +245,7 @@ class SourcePanel(SectionCard):
             lambda _checked=False, row=item: self._remove_item(row)
         )
         row_layout.addWidget(remove_button)
+        item.setSizeHint(row_widget.sizeHint())
         self.source_list.addItem(item)
         self.source_list.setItemWidget(item, row_widget)
 

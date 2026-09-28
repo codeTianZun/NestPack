@@ -18,7 +18,7 @@ CLI 入口参数与 JSON 输出契约（manifest schema、error_kind）跨平台
 - 启动：`pwsh -File scripts\windows\start_gui.ps1`，或 `python -m gui`。
 - 主界面「解包…」按钮打开解包对话框（自动预置当前界面各层密码为候选）。
 - 发布程序缺少 WinRAR 时提供官网安装指引，缺少 7-Zip 时询问是否下载；
-  「⚙ 设定」提供「WinRAR 安装指引」和「安装/修复 7-Zip」。
+  「设置」提供「WinRAR 安装指引」和「安装/修复 7-Zip」。
   7-Zip 程序及许可材料保存在 exe 同目录的 `dependencies/7z/`。
 - 层级卡片密码栏「随机」按钮生成 16 位随机强密码；来源列表支持
   从资源管理器拖放添加。

@@ -71,7 +71,7 @@ Linux 将命令中的 `python` 换成 `python3`。启动后可用数字菜单创
 
 ### 准备归档工具
 
-NestPack 按所选格式调用外部工具：RAR 层需要 WinRAR（Windows）或 RARLAB `rar`（Linux）；7z 和 ZIP 层需要 7-Zip。图形界面的「⚙ 设定」提供工具检测、RAR 安装指引及 7-Zip 安装入口。命令行可运行：
+NestPack 按所选格式调用外部工具：RAR 层需要 WinRAR（Windows）或 RARLAB `rar`（Linux）；7z 和 ZIP 层需要 7-Zip。图形界面的「设置」提供工具检测、RAR 安装指引及 7-Zip 安装入口。命令行可运行：
 
 ```bash
 python -m cli --install-tools
@@ -81,7 +81,7 @@ python -m cli --install-tools
 
 ## 📖 压缩与解包
 
-图形界面中，选择来源和输出目录，按从内到外的顺序添加压缩层，然后开始压缩。完成后可查看产物与密码清单；点击「解包…」即可选择最外层文件进行解包。
+图形界面中，选择来源和输出目录，按从内到外的顺序添加压缩层，然后开始压缩。完成后可查看产物与密码清单；切换到「解包」页即可选择最外层文件进行解包。
 
 命令行除了数字菜单，也支持直接给出任务参数。下面创建一个 RAR 内层和 7z 外层，再解包外层文件：
 
@@ -92,7 +92,7 @@ python -m cli --unpack ./out/outer.7z
 
 Linux 源码运行将 `python` 换成 `python3`；Windows 发布程序将 `python -m cli` 换成 `nestpack-cli.exe`。分卷归档请从第一卷开始解包，并将同一套分卷放在同一目录。更多参数、密码文件及 JSON 配置用法见 [使用说明](使用说明.md)。
 
-视频融合可在 GUI「任务来源」中启用，也可使用参数：
+视频伪装可在 GUI 右侧「输出伪装」中选择「视频伪装（MP4）」，也可使用参数：
 
 ```bash
 python -m cli --source ./data --output ./out --layer 7z --layer-password-file ./password.txt --video ./cover.mp4 --yes
@@ -111,7 +111,7 @@ RAR 自解压可在每层设置中启用。为 Windows 用户分享资源时，�
 
 ## 🔐 密码与文件名
 
-- JSON 配置默认会保存明文密码。需要避免密码写入配置时，可在图形界面关闭「在 JSON 中保存密码」，或在配置中设置 `persist_passwords=false`；请妥善保存完成时显示的密码清单。
+- JSON 配置默认会保存明文密码。需要避免密码写入配置时，可在图形界面的「配置操作」中关闭「在配置中保存密码」，或在配置中设置 `persist_passwords=false`；请妥善保存完成时显示的密码清单。
 - ZIP 层不支持文件名加密，归档内文件名仍可见。需要隐藏文件名时，请使用支持文件名加密的 RAR 或 7z 层。
 - 最外层扩展名调整只改变文件名，不改变归档内容；NestPack 解包时按内容识别格式。
 - 请只处理有权使用的文件，并遵守存储服务条款、适用法律与组织的安全规范。

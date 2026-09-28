@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -32,8 +31,7 @@ class LayersPanel(SectionCard):
 
     def __init__(self) -> None:
         super().__init__(
-            "压缩层级",
-            "列表顺序就是执行顺序：第一层在最里面，最后一层是最终压缩包。",
+            "压缩层", "从内到外，逐层包裹。",
         )
         self.cards: list[LayerCard] = []
         self._config_dir = Path.cwd()
@@ -42,18 +40,12 @@ class LayersPanel(SectionCard):
         self.add_button.clicked.connect(self.add_requested.emit)
         self.actions.addWidget(self.add_button)
 
-        self.layer_scroll = QScrollArea()
-        self.layer_scroll.setWidgetResizable(True)
-        self.layer_scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
         self.layer_container = QWidget()
         self.layers_layout = QVBoxLayout(self.layer_container)
         self.layers_layout.setContentsMargins(0, 0, SPACE_XS, 0)
         self.layers_layout.setSpacing(SPACE_SM)
         self.layers_layout.addStretch(1)
-        self.layer_scroll.setWidget(self.layer_container)
-        self.body_layout.addWidget(self.layer_scroll)
+        self.body_layout.addWidget(self.layer_container)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
     def add_card(self, layer: LayerConfig | None = None, default_stem: str = "layer") -> None:
@@ -106,13 +98,8 @@ class LayersPanel(SectionCard):
             card.set_name_editable(editable)
 
     def set_editable(self, editable: bool) -> None:
-        """压缩运行期间锁定层级面板：禁止增删层与修改各层参数。
-
-        滚动区整体禁用会让所有卡片的控件一并失效；恢复时各控件回到
-        各自的独立状态（如 separate 模式的层名、非 rar 的恢复记录）。
-        """
-        self.add_button.setEnabled(editable)
-        self.layer_scroll.setEnabled(editable)
+        """按任务状态锁定各层参数及增删、移动操作。"""
+        self.setEnabled(editable)
 
     def _remove_card(self, card: LayerCard) -> None:
         """删除卡片；压缩任务至少保留一层。"""
@@ -142,7 +129,7 @@ class LayersPanel(SectionCard):
         for card in self.cards:
             self.layers_layout.removeWidget(card)
         for index, card in enumerate(self.cards, start=1):
-            card.set_number(index)
+            card.set_number(index, len(self.cards))
             self.layers_layout.insertWidget(index - 1, card)
         self.cards_changed.emit()
 
@@ -161,15 +148,6 @@ class LayersPanel(SectionCard):
             used_names.add(folded_name)
             layers.append(layer)
         return layers
-
-    def counts(self) -> tuple[int, int, int]:
-        """返回层数、已填写密码数与恢复记录数。"""
-        layers = self.collect(strict=False)
-        return (
-            len(layers),
-            sum(bool(layer.password) for layer in layers),
-            sum(layer.recovery_percent is not None for layer in layers),
-        )
 
     def passwords(self) -> list[str]:
         """按层顺序返回去重后的已填写密码。"""

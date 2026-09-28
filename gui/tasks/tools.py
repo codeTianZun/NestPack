@@ -1,9 +1,6 @@
-"""压缩工具检测与后台安装。"""
-
-from pathlib import Path
+"""压缩工具后台安装。"""
 
 from gui.tasks.threading import BackgroundTask, TaskWorker
-from platforms import get_archive_platform
 from platforms.tool_installer import install_requested_tools
 
 
@@ -20,12 +17,6 @@ class ToolInstallWorker(TaskWorker):
 
 class ToolInstallTask(BackgroundTask):
     """持有一次依赖安装的运行状态和线程。"""
-
-    @staticmethod
-    def detect() -> tuple[Path | None, Path | None]:
-        """按平台规则检测 WinRAR 与 7-Zip。"""
-        platform = get_archive_platform()
-        return platform.find_tool(), platform.find_tool("7z")
 
     def start(self, tool: str) -> None:
         """安装指定工具，结束后通知界面重新检测。"""

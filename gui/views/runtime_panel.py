@@ -13,6 +13,7 @@ from core.models import AppConfig
 from gui.appearance.theme import SPACE_SM
 from gui.config.paths import selection_directory
 from gui.views.widgets import SectionCard
+from platforms import resolve_optional_tool
 
 
 class _ToolPathRow(QWidget):
@@ -20,9 +21,10 @@ class _ToolPathRow(QWidget):
 
     changed = Signal()
 
-    def __init__(self, title: str, file_filter: str, missing_hint: str) -> None:
+    def __init__(self, title: str, kind: str, file_filter: str, missing_hint: str) -> None:
         super().__init__()
         self._title = title
+        self._kind = kind
         self._file_filter = file_filter
         self._missing_hint = missing_hint
         self.config_dir = Path.cwd()
@@ -37,7 +39,6 @@ class _ToolPathRow(QWidget):
         row.addWidget(label)
         self.edit = LineEdit()
         self.edit.setText("auto")
-        self.edit.textChanged.connect(self.changed)
         row.addWidget(self.edit, 1)
         browse = PushButton("浏览")
         browse.clicked.connect(self._choose)
@@ -47,6 +48,12 @@ class _ToolPathRow(QWidget):
         self._state.setObjectName("muted")
         self._state.setWordWrap(True)
         layout.addWidget(self._state)
+        self.edit.textChanged.connect(self._path_edited)
+        self.edit.editingFinished.connect(self.detect)
+
+    def _path_edited(self) -> None:
+        self._show_state("路径已修改，可点击“重新检测”检查。", "muted")
+        self.changed.emit()
 
     def value(self) -> str:
         return self.edit.text().strip() or "auto"
@@ -58,6 +65,15 @@ class _ToolPathRow(QWidget):
         else:
             formats = "（仅支持 7z）" if path.name.lower() == "7zr.exe" else ""
             self._show_state(f"已检测到：{path}{formats}", "success")
+
+    def detect(self) -> Path | None:
+        try:
+            path = resolve_optional_tool(self.value(), self.config_dir, self._kind)
+        except (ValueError, OSError) as error:
+            self._show_state(str(error), "warning")
+            return None
+        self.show_detection(path)
+        return path
 
     def _show_state(self, text: str, level: str) -> None:
         self._state.setObjectName(level)
@@ -72,7 +88,7 @@ class _ToolPathRow(QWidget):
         )
         if selected:
             self.edit.setText(selected)
-            self._show_state(f"已手动指定 {self._title} 程序。", "success")
+            self.detect()
 
 
 class RuntimePanel(SectionCard):
@@ -80,16 +96,17 @@ class RuntimePanel(SectionCard):
 
     changed = Signal()
     install_requested = Signal()
+    detect_requested = Signal()
     rar_guide_requested = Signal()
 
     def __init__(self) -> None:
         super().__init__("运行环境", "自动检测 WinRAR 与 7-Zip，也可以手动指定程序。")
         self._winrar = _ToolPathRow(
-            "WinRAR", "WinRAR 程序 (WinRAR.exe Rar.exe);;可执行文件 (*.exe)",
+            "WinRAR", "rar", "WinRAR 程序 (WinRAR.exe Rar.exe);;可执行文件 (*.exe)",
             "未检测到；请查看 WinRAR 安装指引，或手动选择 WinRAR.exe / Rar.exe。",
         )
         self._sevenzip = _ToolPathRow(
-            "7-Zip", "7-Zip 程序 (7z.exe 7za.exe 7zz.exe 7zr.exe);;可执行文件 (*.exe)",
+            "7-Zip", "7z", "7-Zip 程序 (7z.exe 7za.exe 7zz.exe 7zr.exe);;可执行文件 (*.exe)",
             "未检测到；使用 7z / zip 层前请安装 7-Zip，或点击依赖安装按钮。",
         )
         self._sevenzip.edit.setToolTip(
@@ -100,6 +117,9 @@ class RuntimePanel(SectionCard):
             self.body_layout.addWidget(row)
             row.changed.connect(self.changed)
         install_line = QHBoxLayout()
+        detect_button = PushButton("重新检测")
+        detect_button.clicked.connect(self.detect_requested)
+        install_line.addWidget(detect_button)
         install_line.addStretch(1)
         rar_button = PushButton("WinRAR 安装指引")
         rar_button.clicked.connect(self.rar_guide_requested)
@@ -131,9 +151,5 @@ class RuntimePanel(SectionCard):
     def tool_paths(self) -> tuple[str, str]:
         return self._winrar.value(), self._sevenzip.value()
 
-    def show_detection(self, winrar: Path | None, sevenzip: Path | None) -> None:
-        self._winrar.show_detection(winrar)
-        self._sevenzip.show_detection(sevenzip)
-
-    def set_installing(self, active: bool) -> None:
-        self._install_button.setEnabled(not active)
+    def detect(self) -> tuple[Path | None, Path | None]:
+        return self._winrar.detect(), self._sevenzip.detect()
