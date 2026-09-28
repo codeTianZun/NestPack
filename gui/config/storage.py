@@ -22,6 +22,7 @@ def create_default_config() -> AppConfig:
             archive_name=f"layer_{number}.rar",
             password="",
             recovery_percent=None,
+            auto_name=True,
         )
         for number in range(1, DEFAULT_LAYER_COUNT + 1)
     ]

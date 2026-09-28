@@ -104,7 +104,7 @@ class ConfigSession(QObject):
     def prepare_execution(self, config: AppConfig) -> AppConfig:
         """生成本次层名并保存；随机名称同时回填界面。"""
         if config.randomize_layer_names:
-            config = randomized_layer_names(config)
+            config = randomized_layer_names(config, self.path.parent)
         self._write(self.path, config)
         if config.randomize_layer_names:
             self.apply(config)

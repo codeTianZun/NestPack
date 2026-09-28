@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSignalBlocker, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
@@ -75,6 +75,7 @@ class SourcePanel(SectionCard):
     paths_changed = Signal()
     #: 打包方式下拉切换。
     mode_changed = Signal()
+    selection_changed = Signal()
 
     def __init__(self) -> None:
         super().__init__("来源文件", "添加文件或文件夹，也可以拖入下方列表。")
@@ -86,17 +87,18 @@ class SourcePanel(SectionCard):
         self.paths_changed.connect(self._fit_list_height)
 
     def _build_list(self) -> None:
-        """来源列表：支持多选与拖放；路径数据与显示分离，行尾提供删除按钮。"""
+        """来源列表：单选切换编辑来源，拖放添加，行尾删除。"""
         self.source_list = SourceDropList()
-        self.source_list.setSelectionMode(
-            QAbstractItemView.SelectionMode.ExtendedSelection
-        )
+        self.source_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self.source_list.setFixedHeight(64)
         self.source_list.setToolTip(
-            "可添加多个文件或文件夹；支持从资源管理器拖入。"
+            "可拖入文件或文件夹；分别打包时，点击来源编辑它的压缩层。"
         )
         self.body_layout.addWidget(self.source_list)
         self.source_list.paths_dropped.connect(self.append_selection)
+        self.source_list.currentItemChanged.connect(
+            lambda _current, _previous: self._selection_changed()
+        )
 
     def _fit_list_height(self) -> None:
         """按来源数量分配空间，较多来源在列表内滚动。"""
@@ -136,9 +138,26 @@ class SourcePanel(SectionCard):
             "一起打包：所有来源合并后生成一套压缩包；\n"
             "分别打包：每个来源在输出目录下各自的子文件夹里生成一套压缩包。"
         )
-        self.source_mode_combo.currentIndexChanged.connect(self.mode_changed.emit)
+        self.source_mode_combo.currentIndexChanged.connect(self._mode_index_changed)
         row.addWidget(self.source_mode_combo, 1)
         self.body_layout.addLayout(row)
+
+    def _selection_changed(self) -> None:
+        if self.mode() == COMPRESS_MODE_SEPARATE:
+            self.selection_changed.emit()
+
+    def _mode_index_changed(self, _index: int) -> None:
+        """切换来源选择方式，并通知主窗口刷新打包预览。"""
+        with QSignalBlocker(self.source_list):
+            if self.mode() == COMPRESS_MODE_SEPARATE:
+                self.source_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+                if self.source_list.count():
+                    self.source_list.setCurrentRow(self.source_list.count() - 1)
+            else:
+                self.source_list.setCurrentRow(-1)
+                self.source_list.clearSelection()
+                self.source_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.mode_changed.emit()
 
     def set_default_output_directory(self, value: str) -> None:
         """为文件选择器提供当前输出目录的快捷入口。"""
@@ -188,11 +207,35 @@ class SourcePanel(SectionCard):
         ]
 
     def set_paths(self, paths: list[str]) -> None:
-        """整体替换来源列表（载入配置用），替换后无选中项。"""
-        self.source_list.clear()
-        for path in paths:
-            self._create_item(path)
+        """替换来源列表，分别打包时保留已有选择或选中最下方来源。"""
+        if paths == self.paths():
+            return
+        selected = self.selected_path()
+        with QSignalBlocker(self.source_list):
+            self.source_list.clear()
+            for path in paths:
+                self._create_item(path)
+            if self.mode() == COMPRESS_MODE_SEPARATE and paths:
+                selected_path = (
+                    normalize_user_path(selected, self._config_dir) if selected else None
+                )
+                index = next((index for index, path in enumerate(paths)
+                              if normalize_user_path(path, self._config_dir) == selected_path),
+                             len(paths) - 1)
+                self.source_list.setCurrentRow(index)
         self.paths_changed.emit()
+
+    def selected_path(self) -> str | None:
+        """当前编辑的来源；未选中时编辑默认层设置。"""
+        if self.mode() != COMPRESS_MODE_SEPARATE:
+            return None
+        item = self.source_list.currentItem()
+        return item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+
+    def select_defaults(self) -> None:
+        """退出来源选择，显示共用的默认层设置。"""
+        self.source_list.setCurrentRow(-1)
+        self.source_list.clearSelection()
 
     def add_paths(self, paths: list[str]) -> list[str]:
         """去重追加来源，返回真正新增的路径；无新增时不改动列表。"""
@@ -204,8 +247,12 @@ class SourcePanel(SectionCard):
                 existing.add(key)
                 added.append(path)
         if added:
-            for path in added:
-                self._create_item(path)
+            with QSignalBlocker(self.source_list):
+                was_empty = self.source_list.count() == 0
+                for path in added:
+                    self._create_item(path)
+                if was_empty and self.mode() == COMPRESS_MODE_SEPARATE:
+                    self.source_list.setCurrentRow(self.source_list.count() - 1)
             self.paths_changed.emit()
         return added
 
@@ -224,7 +271,7 @@ class SourcePanel(SectionCard):
         return COMPRESS_MODE_COMBINED
 
     def set_mode(self, mode: str) -> None:
-        """按配置值选中对应打包方式；仅切换选择，不发额外信号。"""
+        """按配置值切换打包方式与来源列表的选择状态。"""
         index = self.source_mode_combo.findData(mode)
         if index >= 0:
             self.source_mode_combo.setCurrentIndex(index)
@@ -262,7 +309,11 @@ class SourcePanel(SectionCard):
         row = self.source_list.row(item)
         if row < 0:
             return
-        self.source_list.takeItem(row)
+        selected = self.source_list.currentItem() is item
+        with QSignalBlocker(self.source_list):
+            self.source_list.takeItem(row)
+            if selected and self.mode() == COMPRESS_MODE_SEPARATE and self.source_list.count():
+                self.source_list.setCurrentRow(self.source_list.count() - 1)
         self.paths_changed.emit()
 
 

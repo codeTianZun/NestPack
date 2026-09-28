@@ -4,7 +4,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from core.filesystem import normalize_user_path
-from core.models import AppConfig
+from core.models import AppConfig, LayerConfig
 
 
 def selection_directory(value: str, config_dir: Path) -> Path:
@@ -24,14 +24,9 @@ def freeze_config_paths(config: AppConfig, config_dir: Path) -> AppConfig:
         return "auto" if value.strip().lower() == "auto" else local_path(value)
 
     sources = [local_path(value) for value in config.effective_source_paths()]
-    return replace(
-        config,
-        source_path=sources[0] if sources else "",
-        source_paths=sources,
-        output_directory=local_path(config.output_directory),
-        winrar_path=tool_path(config.winrar_path),
-        sevenzip_path=tool_path(config.sevenzip_path),
-        layers=[replace(layer, disguise=replace(
+
+    def freeze_layer(layer: LayerConfig) -> LayerConfig:
+        return replace(layer, disguise=replace(
             layer.disguise,
             video_path=local_path(layer.disguise.video_path),
             source_video_paths={
@@ -43,5 +38,18 @@ def freeze_config_paths(config: AppConfig, config_dir: Path) -> AppConfig:
             template_path=tool_path(layer.sfx.template_path),
             icon_path=local_path(layer.sfx.icon_path),
             logo_path=local_path(layer.sfx.logo_path),
-        )) for layer in config.layers],
+        ))
+
+    return replace(
+        config,
+        source_path=sources[0] if sources else "",
+        source_paths=sources,
+        output_directory=local_path(config.output_directory),
+        winrar_path=tool_path(config.winrar_path),
+        sevenzip_path=tool_path(config.sevenzip_path),
+        layers=[freeze_layer(layer) for layer in config.layers],
+        source_layers={
+            str(normalize_user_path(source, config_dir)): [freeze_layer(layer) for layer in layers]
+            for source, layers in config.source_layers.items()
+        },
     )

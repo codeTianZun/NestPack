@@ -196,7 +196,7 @@ def create_parser() -> ArgumentParser:
     )
     parser.set_defaults(layer_specs=None)
     for flag, field, description in (
-        ("--layer-name", "archive_name", "本层文件名，省略时按来源生成"),
+        ("--layer-name", "archive_name", "本层合并打包文件名，省略时按来源生成"),
         ("--layer-password", "password", "本层密码，空字符串表示不加密"),
         ("--layer-password-file", "password_file", "从 UTF-8 文件读取本层密码（单行）"),
         ("--layer-level", "compression_level", "本层压缩级别：auto 或 0–5"),
@@ -205,7 +205,6 @@ def create_parser() -> ArgumentParser:
         ("--layer-disguise", "disguise_mode", "本层伪装方式：none / extension / video"),
         ("--layer-disguise-extension", "disguise_extension", "本层伪装扩展名，如 .bin，并启用"),
         ("--layer-video", "video_path", "本层默认载体 MP4，并启用视频伪装"),
-        ("--layer-name-template", "name_template", "分别打包的层名模板，如 {stem}_1"),
         ("--layer-sfx", "sfx_target", "启用本层自解压，交付目标 windows 或 linux"),
         ("--layer-sfx-template", "sfx_template_path", "品牌样包或官方 SFX 模板路径，默认 auto"),
         ("--layer-sfx-icon", "sfx_icon_path", "Windows 制作端的 ICO 图标"),

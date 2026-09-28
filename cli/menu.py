@@ -77,7 +77,9 @@ def _task_session(config: AppConfig, config_path: Path | None) -> None:
                 write_task_config(path, config, config_path)
                 config_path = path
                 print(f"配置已保存：{path}")
-                if config.persist_passwords and any(layer.password for layer in config.layers):
+                if config.persist_passwords and any(
+                    layer.password for layer in config.all_layers()
+                ):
                     print("该配置包含明文密码，请妥善保管。")
                 continue
             config = _repair_sources(config)

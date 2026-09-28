@@ -141,6 +141,7 @@ def parse_layer_config(
     layer_index: int,
     *,
     strict: bool = True,
+    separate: bool = False,
 ) -> LayerConfig:
     """解析并验证 layers 数组中的一项。
 
@@ -162,7 +163,8 @@ def parse_layer_config(
     if strict and sfx.enabled and archive_format != FORMAT_RAR:
         raise ConfigError(f"{location}.sfx：自解压适用于 RAR 层，请调整格式或关闭自解压")
 
-    if strict:
+    auto_name = optional_boolean(raw_layer, "auto_name", location, False)
+    if strict and not separate and not auto_name:
         try:
             archive_name = validate_archive_name(
                 require_string(raw_layer, "archive_name", location),
@@ -172,10 +174,9 @@ def parse_layer_config(
         except ValueError as error:
             raise ConfigError(f"{location}.archive_name 无效：{error}") from error
     else:
-        raw_name = raw_layer.get("archive_name")
-        fallback_extension = get_backend(archive_format).archive_extension
-        if not isinstance(raw_name, str) or not raw_name.strip():
-            raw_name = f"layer_{layer_index + 1}{fallback_extension}"
+        raw_name = raw_layer.get("archive_name", "")
+        if not isinstance(raw_name, str):
+            raise ConfigError(f"{location}.archive_name 必须是字符串")
         archive_name = raw_name.strip()
 
     password = raw_layer.get("password", "")
@@ -207,12 +208,6 @@ def parse_layer_config(
         raw_layer.get("compression_level", COMPRESSION_AUTO),
         location,
     )
-
-    name_template = raw_layer.get("name_template")
-    if name_template is not None and not isinstance(name_template, str):
-        raise ConfigError(f"{location}.name_template 必须是字符串或 null")
-    if isinstance(name_template, str) and not name_template.strip():
-        name_template = None
 
     volume_size = raw_layer.get("volume_size")
     if volume_size is None or (
@@ -251,7 +246,7 @@ def parse_layer_config(
         recovery_percent=percent if enabled else None,
         format=archive_format,
         compression_level=compression_level,
-        name_template=name_template,
+        auto_name=auto_name,
         volume_size=volume_size,
         password_set=password_set,
         sfx=sfx,

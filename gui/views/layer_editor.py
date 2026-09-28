@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -23,10 +22,12 @@ from qfluentwidgets import (
 
 from core.backends import get_backend
 from core.config.validation import parse_layer_config
+from core.filesystem import normalize_user_path
 from core.models import FORMAT_7Z, FORMAT_RAR, FORMAT_ZIP, LayerConfig
 from gui.appearance.theme import SPACE_SM, SPACE_XS
 from gui.config.passwords import generate_password
 from gui.views.disguise_panel import DisguisePanel
+from gui.views.layer_names import LayerNames
 from gui.views.sfx_dialog import SfxSettingsDialog
 from gui.views.widgets import CollapsibleSection, ComboBox, LineEdit, text_field
 
@@ -56,7 +57,8 @@ class LayerEditor(QWidget):
 
     def __init__(self, layer: LayerConfig) -> None:
         super().__init__()
-        self.name_template = layer.name_template
+        self.names = LayerNames(layer)
+        self._separate = False
         self.sfx_settings = layer.sfx
         self.config_dir = Path.cwd()
         self.password_set_hint = layer.password_set or bool(layer.password)
@@ -64,6 +66,11 @@ class LayerEditor(QWidget):
         body_layout = QVBoxLayout(self)
         body_layout.setContentsMargins(0, 0, 0, 0)
         body_layout.setSpacing(12)
+        self.scope_label = QLabel()
+        self.scope_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.scope_label.setWordWrap(True)
+        self.scope_label.setObjectName("muted")
+        body_layout.addWidget(self.scope_label)
         self.number_label = QLabel()
         self.number_label.setObjectName("sectionTitle")
         self.role_label = QLabel()
@@ -89,9 +96,6 @@ class LayerEditor(QWidget):
         self.format_combo.setMinimumWidth(76)
         format_layout.addWidget(self.format_combo)
         fields.addWidget(format_box)
-        name_box, self.name_edit, _ = text_field("文件名", layer.archive_name)
-        self.name_edit.setMinimumWidth(130)
-        fields.addWidget(name_box, 3)
         password_box, self.password_edit, password_line = text_field("密码", layer.password)
         self.password_edit.setEchoMode(LineEdit.EchoMode.Password)
         toggle = PushButton("显示")
@@ -104,8 +108,9 @@ class LayerEditor(QWidget):
         generate.setToolTip("生成 16 位随机强密码")
         generate.clicked.connect(self._generate_password)
         password_line.addWidget(generate)
+        fields.addWidget(password_box, 3)
         body_layout.addLayout(fields)
-        body_layout.addWidget(password_box)
+        body_layout.addWidget(self.names)
         self.disguise = DisguisePanel(layer.disguise)
         body_layout.addWidget(self.disguise)
         self.disguise.changed.connect(self.changed)
@@ -158,8 +163,7 @@ class LayerEditor(QWidget):
         self.recovery_check.toggled.connect(self.recovery_spin.setEnabled)
         self.recovery_check.toggled.connect(self.changed)
         self.recovery_spin.valueChanged.connect(self.changed)
-        self.name_edit.textEdited.connect(self._name_edited)
-        self.name_edit.textChanged.connect(self.changed)
+        self.names.changed.connect(self.changed)
         self.password_edit.textEdited.connect(self._password_edited)
         self.password_edit.textChanged.connect(self.changed)
         self.volume_edit.textChanged.connect(self.changed)
@@ -208,9 +212,7 @@ class LayerEditor(QWidget):
         )
 
     def _update_extension(self) -> None:
-        current_name = self.name_edit.text().strip()
-        if Path(current_name).suffix.lower() in (".rar", ".7z", ".zip", ".exe", ".sfx"):
-            self.name_edit.setText(str(Path(current_name).with_suffix(self._extension())))
+        self.names.set_extension(self._extension())
 
     def _sync_sfx(self) -> None:
         self.sfx_button.setEnabled(self.sfx_settings.enabled)
@@ -235,10 +237,6 @@ class LayerEditor(QWidget):
             self._update_extension()
             self.changed.emit()
 
-    def _name_edited(self, _text: str) -> None:
-        """把用户编辑的层名标记为固定名称。"""
-        self.name_template = None
-
     def _password_edited(self, _text: str) -> None:
         """用户手动改过密码输入框后，按输入框内容刷新密码标记。"""
         self.password_set_hint = bool(self.password_edit.text())
@@ -255,37 +253,34 @@ class LayerEditor(QWidget):
         button.setText("隐藏" if visible else "显示")
 
     def set_number(self, number: int, total: int) -> None:
+        self.names.set_number(number)
         self.number_label.setText(f"第 {number} 层")
         self.role_label.setText(
             "打包来源（最外层）" if total == 1 else
             "打包来源" if number == 1 else "最外层" if number == total else "包裹上一层"
         )
 
+    def set_scope(self, text: str) -> None:
+        self.scope_label.setText(text)
+
     def set_config_directory(self, directory: Path) -> None:
         """同步本层素材选择的路径基准。"""
         self.config_dir = directory
         self.disguise.set_config_directory(directory)
 
-    def set_name(self, name: str) -> None:
-        """程序化设置文件名；不触发 textEdited，保留来源模板。"""
-        self.name_edit.setText(name)
-
-    def set_name_editable(self, editable: bool) -> None:
-        """分别打包时展示配置中的固定名称或来源名称模板。"""
-        self.name_edit.setEnabled(editable)
-        self.name_edit.setToolTip(
-            "分别打包时按每个来源展开名称模板。"
-            if not editable and self.name_template
-            else "各来源使用此固定文件名；切换到合并打包可编辑。" if not editable
-            else "压缩包的文件名。"
-        )
+    def set_sources(self, sources: list[str], separate: bool, *, template: bool = False) -> None:
+        """显示当前来源的层名；默认层编辑提供逐来源载体设置。"""
+        self._separate = template
+        source = normalize_user_path(sources[0], self.config_dir) if sources else None
+        self.names.set_source(source, template=template)
+        self.disguise.set_sources(sources, separate and template)
 
     def collect(self, index: int, *, strict: bool = True) -> LayerConfig:
         """收集字段快照；执行时校验，草稿保留尚未完成的输入。"""
         archive_format = self.current_format()
         password = self.password_edit.text()
         layer = LayerConfig(
-            archive_name=self.name_edit.text().strip(),
+            archive_name=self.names.name_edit.text().strip(),
             password=password,
             recovery_percent=(
                 self.recovery_spin.value()
@@ -294,23 +289,15 @@ class LayerEditor(QWidget):
             ),
             format=archive_format,
             compression_level=self.level_combo.currentData(),
-            name_template=self.name_template,
+            auto_name=self.names.auto_name,
             volume_size=self.volume_edit.text().strip() or None,
             password_set=self.password_set_hint or bool(password),
             sfx=self.sfx_settings,
             disguise=self.disguise.collect(),
         )
-        return parse_layer_config(layer.to_json_dict(), index - 1, strict=strict)
-
-    def retemplate_default(self, stem: str, index: int) -> None:
-        """按来源更新使用默认模板的名称。"""
-        current = self.name_edit.text().strip()
-        if self.name_template or re.fullmatch(
-            r"layer_\d+\.(?:rar|7z|zip|exe|sfx)", current, re.IGNORECASE
-        ):
-            self.name_template = f"{{stem}}_{index}"
-            extension = self._extension()
-            self.set_name(f"{stem}_{index}{extension}")
+        return parse_layer_config(
+            layer.to_json_dict(), index - 1, strict=strict, separate=self._separate,
+        )
 
 
 __all__ = ["COMPRESSION_LEVEL_OPTIONS", "FORMAT_OPTIONS", "LayerEditor"]

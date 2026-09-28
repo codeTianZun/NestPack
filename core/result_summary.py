@@ -178,8 +178,10 @@ def build_plan_manifest(plan: CompressionPlan) -> dict[str, Any]:
         "sevenzip": str(plan.sevenzip) if plan.sevenzip else None,
         "overwrite_existing": config.overwrite_existing,
         "delete_inner_after_verify": config.delete_inner_after_verify,
-        "disguise_outer_extension": config.layers[-1].disguise.mode == "extension",
-        "video_fusion": config.layers[-1].disguise.mode == "video",
+        "disguise_outer_extension": any(
+            task.layers[-1].config.disguise.mode == "extension" for task in plan.tasks
+        ),
+        "video_fusion": any(task.layers[-1].config.disguise.mode == "video" for task in plan.tasks),
         "randomize_layer_names": config.randomize_layer_names,
         "warnings": list(plan.warnings),
         "groups": manifest_groups,

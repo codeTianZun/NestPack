@@ -1,28 +1,20 @@
 # Windows 平台参考
 
-CLI 入口参数与 JSON 输出契约（manifest schema、error_kind）跨平台一致，
-见 `cli.md`；解包见 `unpack.md`。
+CLI 入口参数与 JSON 输出契约跨平台一致，见 [cli.md](cli.md)；
+解包见 [unpack.md](unpack.md)。
 
 ## CLI
 
-源码使用 `python -m cli`；发布程序使用 `nestpack-cli.exe`。
-双击或无参数启动进入数字菜单，选择任务后才检查来源；来源失效时可重新选择。
-参数调用直接执行，例如：
+源码在项目根目录使用 `python -m cli`，只需 Python 3.10+ 标准库；
+发布程序使用 `nestpack-cli.exe`，无需 Python。PowerShell 调用示例：
 
 ```powershell
 .\nestpack-cli.exe --source "D:\data" --output "D:\out" --layer rar --yes --non-interactive --json
 ```
 
-## GUI（PySide6，仅 Windows 桌面）
-
-- 启动：`pwsh -File scripts\windows\start_gui.ps1`，或 `python -m gui`。
-- 主界面「解包…」按钮打开解包对话框（自动预置当前界面各层密码为候选）。
-- 发布程序缺少 WinRAR 时提供官网安装指引，缺少 7-Zip 时询问是否下载；
-  「设置」提供「WinRAR 安装指引」和「安装/修复 7-Zip」。
-  7-Zip 程序及许可材料保存在 exe 同目录的 `dependencies/7z/`。
-- 层级卡片密码栏「随机」按钮生成 16 位随机强密码；来源列表支持
-  从资源管理器拖放添加。
-- 完成弹窗会显示密码明文并提供一键复制清单。
+可执行文件路径含空格时用 PowerShell 调用运算符，例如
+`& 'D:\NestPack Tools\nestpack-cli.exe' --help`。为任务路径加引号；
+密码可用 `--layer-password-file` 或解包的 `--password-file` 传入。
 
 ## 平台差异（win32）
 
@@ -33,8 +25,22 @@ CLI 入口参数与 JSON 输出契约（manifest schema、error_kind）跨平台
   会装 7zr.exe（仅 .7z）与支持 -tzip 的 7za.exe。
 - `show_winrar_gui: false` 时追加 `-ibck` 切后台。
 
-## 单文件构建
+## 归档工具安装与路径
 
-Windows GUI 与 CLI 构建入口为 `scripts/windows/build_exe.ps1`（内部调
-`scripts/build.py`），分别生成 `NestPack.exe` 与 `nestpack-cli.exe`，详见
-《打包说明.md》。
+```powershell
+.\nestpack-cli.exe --install-tools 7z --non-interactive --json
+.\nestpack-cli.exe --install-tools rar --non-interactive --json
+```
+
+7-Zip 从官方来源下载并校验 SHA256，程序与许可材料安装到 exe 同目录的
+`dependencies/7z`；源码运行时位于项目根。RAR 命令返回官网安装指引，
+`manual_install: ["rar"]` 表示还需用户自行安装；再次执行同一命令不会自动安装 RAR。
+明确工具位置后使用 `--rar-path` / `--sevenzip-path`，或配置对应字段。
+
+配置中的本机路径按配置目录解析，命令行指定的路径按调用目录解析。
+从 Linux 迁移任务时需更新来源、输出、工具、载体和自解压素材路径。
+默认配置为程序目录下的 `nestpack_config.json`；日志位于
+`%LOCALAPPDATA%\NestPack\logs\nestpack.log`。
+
+实现依据：`platforms/win32/detection.py`、`platforms/tools.py`、
+`platforms/tool_installer.py`、`core/logging_utils.py`。

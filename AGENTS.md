@@ -36,7 +36,9 @@ GUI/CLI + Linux CLI，共用 `core/` 引擎，版本 1.0.0）。智能体会话�
 
 | 要改什么 | 去哪里 |
 |---|---|
-| 压缩计划构建 / 工具路径 / 层名展开与冲突校验 | `core/compression/planning.py` |
+| 压缩计划构建 / 工具路径 / 输出冲突校验 | `core/compression/planning.py` |
+| 默认层名 / 分卷与伪装路径 | `core/naming.py` |
+| 默认层展开 / 来源独立层 / 实际任务选择 | `core/source_layers.py` |
 | 压缩计划 / 任务与层 / 结构化结果 | `core/compression/models.py` |
 | 多来源调度 / 并行停止 / 根因传播 / 全局进度 | `core/compression/scheduler.py` |
 | 逐层压缩 / 按层选工具 / 中间层清理 | `core/compression/layers.py` |
@@ -66,8 +68,10 @@ GUI/CLI + Linux CLI，共用 `core/` 引擎，版本 1.0.0）。智能体会话�
 | GUI 应用接线 / 任务互斥 / 关闭协调 | `gui/main.py` |
 | 主窗口布局 / 来源与层名联动 | `gui/views/main_window.py` |
 | GUI 配置会话 / 自动保存 / 字段绑定 | `gui/config/session.py`、`gui/config/binding.py` |
+| GUI 默认层与来源独立层草稿 | `gui/config/layers.py` |
 | GUI 最近配置与目录 / 默认模板 / 随机密码 | `gui/config/storage.py`、`gui/config/passwords.py` |
 | GUI 路径选择起点 / 另存时固定路径 | `gui/config/paths.py` |
+| GUI 当前来源层名编辑 / 最终路径预览 | `gui/views/layer_names.py`、`gui/config/naming.py` |
 | GUI 后台任务 / 线程状态与回收 | `gui/tasks/`、`gui/tasks/threading.py` |
 | GUI 工具路径 / 浏览与检测提示 / 安装动作 | `gui/views/runtime_panel.py` |
 | GUI 压缩输出 / 已有归档伪装 | `gui/views/output_panel.py`、`gui/views/video_dialog.py` |

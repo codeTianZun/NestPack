@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, Signal
 
-from core.models import AppConfig
+from core.models import COMPRESS_MODE_SEPARATE, AppConfig
 from gui.config.storage import create_default_config
 
 if TYPE_CHECKING:
@@ -49,7 +48,7 @@ class ConfigBinding(QObject):
         config = self._options.collect(config)
         config = self._settings.collect(config, strict=strict)
         config = self._config_bar.collect(config)
-        return replace(config, layers=self._layers.collect(strict=strict))
+        return self._layers.collect_config(config, strict=strict)
 
     def apply(self, config: AppConfig) -> None:
         """回填全部编辑面板，自动保存的挂起由配置会话负责。"""
@@ -58,4 +57,8 @@ class ConfigBinding(QObject):
         self._options.apply(config)
         self._settings.apply(config)
         self._config_bar.apply(config)
-        self._layers.set_cards(config.layers)
+        self._layers.set_sources(
+            self._source.paths(), config.compress_mode == COMPRESS_MODE_SEPARATE,
+            self._source.selected_path(),
+        )
+        self._layers.apply(config)

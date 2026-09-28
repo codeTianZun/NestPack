@@ -53,11 +53,11 @@ class LayerCard(QFrame):
         self.up_button.clicked.connect(lambda: self.move_requested.emit(self, -1))
         self.down_button.clicked.connect(lambda: self.move_requested.emit(self, 1))
         self.remove_button.clicked.connect(lambda: self.remove_requested.emit(self))
-        self.editor.changed.connect(self._refresh)
+        self.editor.changed.connect(self.refresh_summary)
         self.editor.changed.connect(self.changed)
-        self._refresh()
+        self.refresh_summary()
 
-    def _refresh(self) -> None:
+    def refresh_summary(self) -> None:
         layer = self.collect(strict=False)
         disguise = {
             "none": "原扩展名",
@@ -68,7 +68,7 @@ class LayerCard(QFrame):
             "密码已设置" if layer.password else "密码待补充" if layer.password_set else "无密码"
         )
         role = " · 最外层" if self._number == self._total else ""
-        name = self.editor.name_edit.text().strip() or "待填写文件名"
+        name = self.editor.names.summary()
         text = (
             f"第 {self._number} 层{role}  {name}\n"
             f"{layer.format.upper()} · {disguise} · {password}"
@@ -81,7 +81,7 @@ class LayerCard(QFrame):
         self._number, self._total = number, total
         self.editor.set_number(number, total)
         self.set_editable(self._editable)
-        self._refresh()
+        self.refresh_summary()
 
     def set_editable(self, editable: bool) -> None:
         """锁定编辑和结构操作，仍允许切换查看各层设置。"""

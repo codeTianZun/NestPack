@@ -53,7 +53,7 @@ def new_config(sources: list[Path] | None = None) -> AppConfig:
         overwrite_existing=False,
         confirm_before_start=False,
         show_winrar_gui=False,
-        layers=[LayerConfig(f"{stem}_1.rar", "", None, name_template="{stem}_1")],
+        layers=[LayerConfig(f"{stem}_1.rar", "", None, auto_name=True)],
     )
 
 
@@ -72,16 +72,8 @@ def absolute_config(config: AppConfig, config_path: Path | None) -> AppConfig:
             return value
         return "auto" if value.strip().lower() == "auto" else str(normalize_user_path(value, base))
 
-    return replace(
-        config,
-        source_path=sources[0] if sources else "",
-        source_paths=sources,
-        output_directory=str(normalize_user_path(config.output_directory, base))
-        if config.output_directory
-        else "",
-        winrar_path=tool_path(config.winrar_path),
-        sevenzip_path=tool_path(config.sevenzip_path),
-        layers=[replace(layer, disguise=replace(
+    def freeze_layer(layer: LayerConfig) -> LayerConfig:
+        return replace(layer, disguise=replace(
             layer.disguise,
             video_path=str(normalize_user_path(layer.disguise.video_path, base))
             if layer.disguise.video_path else "",
@@ -96,7 +88,22 @@ def absolute_config(config: AppConfig, config_path: Path | None) -> AppConfig:
             if layer.sfx.icon_path else "",
             logo_path=str(normalize_user_path(layer.sfx.logo_path, base))
             if layer.sfx.logo_path else "",
-        )) for layer in config.layers],
+        ))
+
+    return replace(
+        config,
+        source_path=sources[0] if sources else "",
+        source_paths=sources,
+        output_directory=str(normalize_user_path(config.output_directory, base))
+        if config.output_directory
+        else "",
+        winrar_path=tool_path(config.winrar_path),
+        sevenzip_path=tool_path(config.sevenzip_path),
+        layers=[freeze_layer(layer) for layer in config.layers],
+        source_layers={
+            str(normalize_user_path(source, base)): [freeze_layer(layer) for layer in layers]
+            for source, layers in config.source_layers.items()
+        },
     )
 
 
@@ -104,10 +111,10 @@ def write_task_config(path: Path, config: AppConfig, config_path: Path | None) -
     """保存当前任务的路径快照，并应用密码持久化设置。"""
     snapshot = absolute_config(config, config_path)
     protected = list(snapshot.effective_source_paths())
-    protected.extend(value for layer in snapshot.layers for value in (
+    protected.extend(value for layer in snapshot.all_layers() for value in (
         layer.disguise.video_path, *layer.disguise.source_video_paths.values(),
     ) if value)
-    protected.extend(value for layer in snapshot.layers for value in (
+    protected.extend(value for layer in snapshot.all_layers() for value in (
         layer.sfx.template_path, layer.sfx.icon_path, layer.sfx.logo_path,
     ) if value and value.casefold() != "auto")
     if path.resolve() in (Path(value) for value in protected if value):
@@ -122,7 +129,7 @@ def _layer_from_options(spec: dict, index: int, stem: str) -> dict:
         "",
         None,
         format=archive_format,
-        name_template=f"{{stem}}_{index}",
+        auto_name=True,
     ).to_json_dict()
     values = dict(spec)
     if "password_file" in values:
@@ -132,7 +139,7 @@ def _layer_from_options(spec: dict, index: int, stem: str) -> dict:
             )
         raw["password"] = read_layer_password(normalize_user_path(values.pop("password_file")))
     if "archive_name" in values:
-        raw["name_template"] = None
+        raw["auto_name"] = False
     if "compression_level" in values and values["compression_level"] != "auto":
         try:
             values["compression_level"] = int(values["compression_level"])

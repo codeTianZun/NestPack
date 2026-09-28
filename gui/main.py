@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication
 from core.compression import CompressionResult, build_compression_plan
 from core.logging_utils import setup_logging
 from core.models import ConfigError
+from core.source_layers import source_layer_groups
 from gui.appearance.logo import LogoState
 from gui.appearance.theme import APP_NAME, create_app_icon, init_fluent_theme
 from gui.config.binding import ConfigBinding
@@ -174,14 +175,16 @@ class GuiApplication(QObject):
             show_error(self.window, "无法开始", str(error))
             return
         missing = [
-            str(index) for index, layer in enumerate(config.layers, start=1)
+            f"{sources[0].name} 第 {index} 层"
+            for sources, layers in source_layer_groups(config, self.config.path.parent)
+            for index, layer in enumerate(layers, start=1)
             if layer.password_set and not layer.password
         ]
         if missing and not ask_yes_no(
             self.window, "缺少密码",
-            "以下层在配置中标记为需要密码，但当前未填写：第 "
+            "以下层在配置中标记为需要密码，但当前未填写："
             + "、".join(missing)
-            + " 层。\n继续将生成【不加密】的压缩包，是否继续？",
+            + "。\n继续将生成【不加密】的压缩包，是否继续？",
             yes_text="继续",
         ):
             return

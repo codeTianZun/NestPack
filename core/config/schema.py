@@ -94,6 +94,7 @@ def _build_app_config(
     raw_config: dict[str, Any],
     *,
     layers: list[LayerConfig],
+    source_layers: dict[str, list[LayerConfig]],
     source_paths: list[str],
     winrar_path: str,
     sevenzip_path: str,
@@ -125,6 +126,7 @@ def _build_app_config(
             else require_boolean(raw_config, "show_winrar_gui", "配置")
         ),
         layers=layers,
+        source_layers=source_layers,
         # 隐私与归档选项缺省时使用各自的默认值。
         add_padding=optional_boolean(raw_config, "add_padding", "配置", False),
         randomize_layer_names=optional_boolean(
@@ -167,10 +169,31 @@ def parse_config(
         raise ConfigError("layers 必须是至少包含一项的数组")
 
     raw_layers = _migrate_outer_disguise(raw_config, raw_layers)
+    compress_mode = _parse_compress_mode_field(raw_config)
     layers = [
-        parse_layer_config(raw_layer, layer_index, strict=not allow_incomplete)
+        parse_layer_config(
+            raw_layer, layer_index, strict=not allow_incomplete,
+            separate=compress_mode == COMPRESS_MODE_SEPARATE,
+        )
         for layer_index, raw_layer in enumerate(raw_layers)
     ]
+    raw_source_layers = raw_config.get("source_layers", {})
+    if not isinstance(raw_source_layers, dict):
+        raise ConfigError("source_layers 必须是来源路径到压缩层数组的对象")
+    source_layers: dict[str, list[LayerConfig]] = {}
+    for source, items in raw_source_layers.items():
+        if not isinstance(source, str) or not source.strip():
+            raise ConfigError("source_layers 的来源路径必须是非空字符串")
+        if not isinstance(items, list) or not items:
+            raise ConfigError(f"source_layers[{source}] 必须是至少包含一层的数组")
+        try:
+            source_layers[source] = [
+                parse_layer_config(item, index, strict=(
+                    not allow_incomplete and compress_mode == COMPRESS_MODE_SEPARATE
+                )) for index, item in enumerate(items)
+            ]
+        except ConfigError as error:
+            raise ConfigError(f"来源 {source}：{error}") from error
     source_paths = parse_source_paths(raw_config, strict=not allow_incomplete)
     winrar_path, sevenzip_path, output_directory = _parse_path_fields(
         raw_config, allow_incomplete=allow_incomplete
@@ -179,9 +202,10 @@ def parse_config(
     return _build_app_config(
         raw_config,
         layers=layers,
+        source_layers=source_layers,
         source_paths=source_paths,
         winrar_path=winrar_path,
         sevenzip_path=sevenzip_path,
         output_directory=output_directory,
-        compress_mode=_parse_compress_mode_field(raw_config),
+        compress_mode=compress_mode,
     )

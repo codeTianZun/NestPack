@@ -66,7 +66,8 @@ def print_config_summary(plan: CompressionPlan) -> None:
     )
     print(f"打包方式：{mode_text}")
     print(f"输出目录：{plan.output_directory}")
-    print(f"嵌套层数：{len(plan.tasks[0].layers)}")
+    counts = sorted({len(task.layers) for task in plan.tasks})
+    print("嵌套层数：" + " / ".join(str(count) for count in counts))
     print(f"自动覆盖：{'是' if config.overwrite_existing else '否'}")
     if sys.platform == "win32":
         print(f"显示 WinRAR 界面：{'是' if config.show_winrar_gui else '否'}")

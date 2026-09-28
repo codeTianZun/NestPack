@@ -93,9 +93,7 @@ class LayerConfig:
     password: str
     recovery_percent: int | None
     compression_level: str | int = COMPRESSION_AUTO
-    # 默认层名的来源模板：形如 "{stem}_1"，separate 模式运行时按各来源替换。
-    # 用户自定义过文件名时该字段为 None，运行时不替换，保留原名。
-    name_template: str | None = None
+    auto_name: bool = False
     # 分卷大小（如 "500m"）；None 表示不分卷。
     volume_size: str | None = None
     # 该层是否本应设置密码。persist_passwords=false 时密码不落盘，
@@ -117,7 +115,7 @@ class LayerConfig:
                 "percent": self.recovery_percent or 3,
             },
             "compression_level": self.compression_level,
-            "name_template": self.name_template,
+            "auto_name": self.auto_name,
             "volume_size": self.volume_size,
             "password_set": self.password_set or bool(self.password),
             "sfx": self.sfx.to_json_dict(),
@@ -147,6 +145,7 @@ class AppConfig:
     # compress_mode 决定多个来源是一起打包还是一个来源一套压缩包。
     source_paths: list[str] = field(default_factory=list)
     compress_mode: str = COMPRESS_MODE_COMBINED
+    source_layers: dict[str, list[LayerConfig]] = field(default_factory=dict)
     # 完成后把最外层文件的修改时间改为随机值，避免时间戳成为关联特征。
     randomize_timestamps: bool = False
     # 7-Zip 命令行工具路径，语义同 winrar_path（auto 表示自动检测）；
@@ -156,6 +155,11 @@ class AppConfig:
     def effective_source_paths(self) -> list[str]:
         """返回实际生效的来源列表，兼容只填了 source_path 的旧配置。"""
         return self.source_paths or ([self.source_path] if self.source_path else [])
+
+    def all_layers(self) -> list[LayerConfig]:
+        """返回默认层和所有来源独立层，供密码与素材管理使用。"""
+        return [*self.layers,
+                *(layer for layers in self.source_layers.values() for layer in layers)]
 
     def to_json_dict(self) -> dict[str, Any]:
         """生成供配置文件和 GUI 使用的 JSON 字段。"""
@@ -171,6 +175,10 @@ class AppConfig:
             "confirm_before_start": self.confirm_before_start,
             "show_winrar_gui": self.show_winrar_gui,
             "layers": [layer.to_json_dict() for layer in self.layers],
+            "source_layers": {
+                source: [layer.to_json_dict() for layer in layers]
+                for source, layers in self.source_layers.items()
+            },
             "add_padding": self.add_padding,
             "randomize_layer_names": self.randomize_layer_names,
             "hide_source_name": self.hide_source_name,
@@ -186,14 +194,12 @@ class AppConfig:
 
         password_set 标记保留，命令行加载这类配置时可以交互补问。
         """
+        def clear(layers: list[LayerConfig]) -> list[LayerConfig]:
+            return [replace(layer, password="",
+                            password_set=layer.password_set or bool(layer.password))
+                    for layer in layers]
+
         return replace(
-            self,
-            layers=[
-                replace(
-                    layer,
-                    password="",
-                    password_set=layer.password_set or bool(layer.password),
-                )
-                for layer in self.layers
-            ],
+            self, layers=clear(self.layers),
+            source_layers={source: clear(layers) for source, layers in self.source_layers.items()},
         )

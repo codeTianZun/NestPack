@@ -24,6 +24,8 @@ from core.backends import get_backend
 from core.config import validate_disguise_extension, validate_password, validate_volume_size
 from core.filesystem import normalize_user_path
 from core.models import FORMAT_RAR, AppConfig, ConfigError, DisguiseConfig, LayerConfig
+from core.naming import resolve_archive_name
+from core.source_layers import default_source_layers, source_layer_groups
 from platforms import get_archive_platform
 
 
@@ -40,24 +42,25 @@ def ask_config_path(default: Path) -> Path:
 def print_task_settings(config: AppConfig) -> None:
     """在工具或来源尚不可用时也能展示和编辑任务。"""
     print("\n当前任务：")
-    for source in config.effective_source_paths():
-        print(f"  来源：{source}")
+    for raw_source in config.effective_source_paths():
+        print(f"  来源：{raw_source}")
     print(f"  输出：{config.output_directory or '尚未设置'}")
     print(f"  打包：{'分别打包' if config.compress_mode == 'separate' else '合并打包'}")
-    for index, layer in enumerate(config.layers, start=1):
-        state = "已设置" if layer.password else "待补充" if layer.password_set else "无"
-        print(
-            f"  第 {index} 层：{layer.archive_name}（{layer.format}），密码：{state}，"
-            f"级别：{layer.compression_level}，分卷：{layer.volume_size or '关闭'}"
-        )
-        if layer.disguise.mode == "extension":
-            print(f"    伪装扩展名：{layer.disguise.extension}")
-        elif layer.disguise.mode == "video":
-            print(f"    视频伪装：默认 {layer.disguise.video_path or '尚未设置'}")
-            for source, video in layer.disguise.source_video_paths.items():
-                print(f"      {source} → {video}")
-        if layer.sfx.enabled:
-            print(f"    自解压：{layer.sfx.target}，模板：{layer.sfx.template_path}")
+    groups = source_layer_groups(config, Path.cwd())
+    for sources, layers in groups:
+        source = sources[0] if sources else Path("archive")
+        print(f"  {source.name}：")
+        for index, layer in enumerate(layers, start=1):
+            state = "已设置" if layer.password else "待补充" if layer.password_set else "无"
+            name = resolve_archive_name(layer, index, source)
+            print(f"    第 {index} 层：{name}（{layer.format}），密码：{state}，"
+                  f"级别：{layer.compression_level}，分卷：{layer.volume_size or '关闭'}")
+            if layer.disguise.mode == "extension":
+                print(f"      伪装扩展名：{layer.disguise.extension}")
+            elif layer.disguise.mode == "video":
+                print(f"      视频伪装：{layer.disguise.video_path or '尚未设置'}")
+            if layer.sfx.enabled:
+                print(f"      自解压：{layer.sfx.target}，模板：{layer.sfx.template_path}")
 
 
 def _ask_mode() -> str:
@@ -84,7 +87,9 @@ def create_config_interactively() -> AppConfig:
     layers: list[LayerConfig] = []
     names: set[str] = set()
     for number in range(1, count + 1):
-        layer = ask_layer_config(number, _source_stem(config), names)
+        layer = ask_layer_config(
+            number, _source_stem(config), names, separate=mode == "separate",
+        )
         layers.append(layer)
         names.add(layer.archive_name.casefold())
     config = replace(config, output_directory=str(output), compress_mode=mode, layers=layers)
@@ -129,12 +134,12 @@ def _edit_layer(
             "层设置",
             {
                 1: "压缩格式",
-                2: "文件名",
+                2: "合并打包文件名" if config.compress_mode == "separate" else "文件名",
                 3: "密码",
                 4: f"压缩级别：{layer.compression_level}",
                 5: f"分卷：{layer.volume_size or '关闭'}",
                 6: f"恢复记录：{layer.recovery_percent or '关闭'}",
-                7: f"分别打包的层名模板：{layer.name_template or '使用固定文件名'}",
+                7: "恢复默认文件名",
                 8: f"自解压：{layer.sfx.target if layer.sfx.enabled else '关闭'}",
                 9: "伪装方式与载体视频",
                 0: "返回",
@@ -165,7 +170,7 @@ def _edit_layer(
                 index, layer.archive_name, forbidden, layer.format,
                 sfx_extension=layer.sfx.extension if layer.sfx.enabled else None,
             )
-            layer = replace(layer, archive_name=name, name_template=None)
+            layer = replace(layer, archive_name=name, auto_name=False)
         elif choice == 3:
             password = ask_password(index, layer.format)
             layer = replace(layer, password=password, password_set=bool(password))
@@ -183,9 +188,7 @@ def _edit_layer(
                 )
                 layer = replace(layer, recovery_percent=percent)
         elif choice == 7:
-            raw = input("层名模板，例如 {stem}_1（回车保留，- 使用固定文件名）：").strip()
-            if raw:
-                layer = replace(layer, name_template=None if raw == "-" else raw)
+            layer = replace(layer, auto_name=True)
         elif choice == 8:
             sfx = edit_sfx(layer.sfx)
             extension = (
@@ -200,7 +203,7 @@ def _select_layer(layers: list[LayerConfig]) -> int:
     return ask_menu("选择压缩层", {i: layer.archive_name for i, layer in enumerate(layers, 1)}) - 1
 
 
-def _edit_layers(config: AppConfig) -> AppConfig:
+def _edit_layer_list(config: AppConfig) -> AppConfig:
     layers = list(config.layers)
     while True:
         for index, layer in enumerate(layers, start=1):
@@ -224,6 +227,7 @@ def _edit_layers(config: AppConfig) -> AppConfig:
                     len(layers) + 1,
                     _source_stem(config),
                     {layer.archive_name.casefold() for layer in layers},
+                    separate=config.compress_mode == "separate",
                 )
             )
         elif choice == 2:
@@ -243,6 +247,40 @@ def _edit_layers(config: AppConfig) -> AppConfig:
                 f"移动到第几层（1–{len(layers)}）：", maximum=len(layers)
             )
             layers.insert(position - 1, layers.pop(index))
+
+
+def _edit_layers(config: AppConfig) -> AppConfig:
+    """选择默认设置或某个来源，再复用同一层列表编辑器。"""
+    if config.compress_mode != "separate":
+        return _edit_layer_list(config)
+    sources = config.effective_source_paths()
+    choice = ask_menu("编辑范围", {
+        1: "默认层设置", **{index: source for index, source in enumerate(sources, 2)}, 0: "返回",
+    }, default=1)
+    if choice == 0:
+        return config
+    if choice == 1:
+        return _edit_layer_list(config)
+    source = normalize_user_path(sources[choice - 2])
+    overrides = {str(normalize_user_path(path)): layers
+                 for path, layers in config.source_layers.items()}
+    action = ask_menu(
+        str(source), {1: "编辑此来源的层设置", 2: "恢复共用默认", 0: "返回"}, default=1,
+    )
+    if action == 2:
+        overrides.pop(str(source), None)
+    elif action == 1:
+        layers = overrides.get(str(source))
+        if layers is None:
+            layers = default_source_layers(config.layers, source, Path.cwd())
+        current = replace(
+            config, layers=layers, source_paths=[str(source)], source_path=str(source),
+            compress_mode="combined",
+        )
+        updated = _edit_layer_list(current)
+        if updated.layers != layers:
+            overrides[str(source)] = updated.layers
+    return replace(config, source_layers=overrides)
 
 
 ARCHIVE_SETTINGS = {
@@ -336,7 +374,9 @@ def edit_config(config: AppConfig) -> AppConfig:
         if choice == 1:
             sources = ask_source_paths("来源路径（多个用分号 ; 分隔）：")
             config = replace(
-                config, source_path=str(sources[0]), source_paths=[str(path) for path in sources]
+                config, source_path=str(sources[0]), source_paths=[str(path) for path in sources],
+                source_layers={source: layers for source, layers in config.source_layers.items()
+                               if normalize_user_path(source) in sources},
             )
         elif choice == 2:
             default = (

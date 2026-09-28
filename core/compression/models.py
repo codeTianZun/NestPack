@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from core.backends import get_backend
 from core.models import AppConfig, LayerConfig
+from core.naming import layer_output_paths
 from core.sfx import SfxPlan
 
 
@@ -23,20 +23,7 @@ class LayerPlan:
 
     def output_paths(self, volume_count: int = 1) -> tuple[Path, ...]:
         """按实际卷数生成产物路径；预览时用第一卷表达尚未确定大小的分卷套。"""
-        if self.video is not None:
-            return (self.destination.with_suffix(".mp4"),)
-        backend = get_backend(self.config.format)
-        paths = (
-            backend.volume_final_names(self.destination, volume_count)
-            if self.config.volume_size
-            else [self.destination]
-        )
-        if self.disguise_extension is not None:
-            if self.sfx is not None and self.disguise_extension.casefold() in (".exe", ".sfx"):
-                paths[0] = backend.disguise_name(paths[0], self.disguise_extension)
-            else:
-                paths = [backend.disguise_name(path, self.disguise_extension) for path in paths]
-        return tuple(paths)
+        return layer_output_paths(self.config, self.destination, volume_count)
 
 
 @dataclass(frozen=True)

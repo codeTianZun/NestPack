@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 from qfluentwidgets import CheckBox, PushButton
 
@@ -34,10 +34,12 @@ class OutputPanel(QWidget):
         layout.addWidget(title)
         self.output_name = QLabel("请选择来源并设置压缩层")
         self.output_name.setObjectName("outputName")
+        self.output_name.setTextFormat(Qt.TextFormat.PlainText)
         self.output_name.setWordWrap(True)
         layout.addWidget(self.output_name)
         self.output_hint = QLabel()
         self.output_hint.setObjectName("muted")
+        self.output_hint.setTextFormat(Qt.TextFormat.PlainText)
         self.output_hint.setWordWrap(True)
         layout.addWidget(self.output_hint)
         directory_box, self.output_edit, row = text_field("输出目录", "")
@@ -47,6 +49,10 @@ class OutputPanel(QWidget):
         self.output_edit.textChanged.connect(self.directory_changed)
         self.output_edit.textChanged.connect(self.changed)
         layout.addWidget(directory_box)
+        self.preview_paths = QVBoxLayout()
+        self.preview_paths.setSpacing(12)
+        layout.addLayout(self.preview_paths)
+        self._preview_rows: list[tuple[str, str]] = []
 
         self.existing_button = PushButton("伪装已有压缩包…")
         self.existing_button.clicked.connect(self.disguise_existing_requested.emit)
@@ -87,9 +93,35 @@ class OutputPanel(QWidget):
         if selected:
             self.set_output_directory(selected)
 
-    def set_preview(self, name: str, hint: str) -> None:
+    def set_preview(
+        self, name: str, hint: str, paths: list[tuple[str, str]] | None = None,
+    ) -> None:
         self.output_name.setText(name)
         self.output_hint.setText(hint)
+        rows = paths or []
+        if rows == self._preview_rows:
+            return
+        self._preview_rows = list(rows)
+        while self.preview_paths.count():
+            widget = self.preview_paths.takeAt(0).widget()
+            if widget is not None:
+                widget.hide()
+                widget.deleteLater()
+        for source, path in rows:
+            box = QWidget()
+            layout = QVBoxLayout(box)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(4)
+            title = QLabel(source)
+            title.setObjectName("fieldLabel")
+            destination = QLabel(path)
+            destination.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            destination.setToolTip(path)
+            for label in (title, destination):
+                label.setTextFormat(Qt.TextFormat.PlainText)
+                label.setWordWrap(True)
+                layout.addWidget(label)
+            self.preview_paths.addWidget(box)
 
     def collect(self, config: AppConfig, *, strict: bool = True) -> AppConfig:
         output = self.output_directory()

@@ -20,6 +20,7 @@ from core.backends import SUPPORTED_FORMATS, get_backend
 from core.config import validate_archive_name, validate_password
 from core.filesystem import normalize_user_path
 from core.models import FORMAT_RAR, AppConfig, ConfigError, LayerConfig
+from core.source_layers import source_layer_groups
 
 # ---------- 路径与基础值问答 ----------
 
@@ -212,11 +213,16 @@ def ask_layer_config(
     layer_number: int,
     source_stem: str,
     forbidden_names: set[str],
+    *, separate: bool = False,
 ) -> LayerConfig:
     """通过交互收集一层配置。"""
     archive_format = ask_archive_format(layer_number)
     default_name = f"{source_stem}_{layer_number}{get_backend(archive_format).archive_extension}"
-    archive_name = ask_archive_name(layer_number, default_name, forbidden_names, archive_format)
+    if separate:
+        print(f"第 {layer_number} 层按来源名与层号自动命名，可在层设置中逐来源修改。")
+        archive_name = default_name
+    else:
+        archive_name = ask_archive_name(layer_number, default_name, forbidden_names, archive_format)
     password = ask_password(layer_number, archive_format)
 
     recovery_percent: int | None = None
@@ -234,7 +240,7 @@ def ask_layer_config(
         password=password,
         recovery_percent=recovery_percent,
         format=archive_format,
-        name_template=f"{{stem}}_{layer_number}" if archive_name == default_name else None,
+        auto_name=archive_name == default_name,
         password_set=bool(password),
     )
 
@@ -243,26 +249,31 @@ def ask_layer_config(
 
 
 def prompt_missing_passwords(
-    config: AppConfig, *, output_stream: TextIO | None = None
+    config: AppConfig, config_dir: Path, *, output_stream: TextIO | None = None
 ) -> AppConfig:
     """为 password_set=true 但密码为空的层交互补问密码。
 
     persist_passwords=false 的配置不落盘密码，只保存 password_set 标记；
     不补问会静默压出无加密的压缩包。补问结果只用于本次运行。
     """
-    layers: list[LayerConfig] = []
-    changed = False
-    for layer_number, layer in enumerate(config.layers, start=1):
-        if layer.password_set and not layer.password:
-            print(
-                f"第 {layer_number} 层标记为需要密码，但配置中未保存密码。",
-                file=output_stream or sys.stdout,
-            )
-            password = ask_password(layer_number, layer.format, output_stream=output_stream)
-            layer = replace(layer, password=password, password_set=bool(password))
-            changed = True
-        layers.append(layer)
-    return replace(config, layers=layers) if changed else config
+    source_layers = dict(config.source_layers)
+    for sources, layers in source_layer_groups(config, config_dir):
+        updated = []
+        changed = False
+        for number, layer in enumerate(layers, start=1):
+            if layer.password_set and not layer.password:
+                print(f"{sources[0].name} 第 {number} 层标记为需要密码，但配置中未保存密码。",
+                      file=output_stream or sys.stdout)
+                password = ask_password(number, layer.format, output_stream=output_stream)
+                layer = replace(layer, password=password, password_set=bool(password))
+                changed = True
+            updated.append(layer)
+        if changed:
+            if config.compress_mode == "separate":
+                source_layers[str(sources[0])] = updated
+            else:
+                config = replace(config, layers=updated)
+    return replace(config, source_layers=source_layers)
 
 
 # ---------- 无头环境检测 ----------
@@ -296,10 +307,11 @@ def require_interactive_tty(reason: str) -> None:
         raise ConfigError(f"{reason}；当前环境无交互终端，请改用 --config 指定已准备好的配置文件")
 
 
-def require_interactive_for_missing_passwords(config: AppConfig) -> None:
+def require_interactive_for_missing_passwords(config: AppConfig, config_dir: Path) -> None:
     """配置标记了需要密码但未保存密码时，无头环境无法补问，提前报错。"""
     if not stdin_is_interactive() and any(
-        layer.password_set and not layer.password for layer in config.layers
+        layer.password_set and not layer.password
+        for _, layers in source_layer_groups(config, config_dir) for layer in layers
     ):
         raise ConfigError(
             "配置中有层标记为需要密码但未保存密码（persist_passwords=false），"

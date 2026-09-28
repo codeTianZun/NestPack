@@ -46,7 +46,7 @@ def load_config_sidecar(config_path: Path, *, required: bool) -> tuple[str, str,
             config = load_config(config_path, allow_incomplete=True)
             winrar_setting = config.winrar_path
             sevenzip_setting = config.sevenzip_path
-            passwords = [layer.password for layer in config.layers if layer.password]
+            passwords = [layer.password for layer in config.all_layers() if layer.password]
         except (ConfigError, OSError) as error:
             if required:
                 raise

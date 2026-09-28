@@ -19,6 +19,7 @@ from core.compression import build_compression_plan, run_compression
 from core.config import randomized_layer_names
 from core.models import AppConfig, ConfigError
 from core.result_summary import build_manifest, build_plan_manifest
+from core.source_layers import source_layer_groups
 
 
 @dataclass(frozen=True)
@@ -36,17 +37,19 @@ class CompressionOptions:
 def run_compress(config: AppConfig, config_path: Path | None, options: CompressionOptions) -> int:
     """执行完整任务；预览只读，确认完成后才保存配置并创建产物。"""
     stream = sys.stderr if options.json_mode or options.dry_run else sys.stdout
+    config_dir = config_path.parent if config_path else Path.cwd()
     if not options.dry_run:
-        missing = any(layer.password_set and not layer.password for layer in config.layers)
+        missing = any(layer.password_set and not layer.password
+                      for _, layers in source_layer_groups(config, config_dir) for layer in layers)
         if missing and options.non_interactive:
             raise ConfigError(
                 "配置有待补充的层密码；无交互模式请提供完整密码或使用 --layer-password-file"
             )
-        require_interactive_for_missing_passwords(config)
-        config = prompt_missing_passwords(config, output_stream=stream)
+        require_interactive_for_missing_passwords(config, config_dir)
+        config = prompt_missing_passwords(config, config_dir, output_stream=stream)
     config = validate_config(config)
     if config.randomize_layer_names and not options.dry_run:
-        config = randomized_layer_names(config)
+        config = randomized_layer_names(config, config_dir)
     plan = build_compression_plan(config, config_path)
     if options.dry_run:
         print_json(build_plan_manifest(plan))
@@ -97,6 +100,6 @@ def run_compress(config: AppConfig, config_path: Path | None, options: Compressi
         print("\n打包完成，交付文件：")
         for path in result.final_files:
             print(f"  {path}")
-        if config.delete_inner_after_verify and len(config.layers) > 1:
+        if config.delete_inner_after_verify and any(len(task.layers) > 1 for task in plan.tasks):
             print("中间层已按设置删除；原始来源保留。")
     return 0

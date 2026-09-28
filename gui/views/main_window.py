@@ -21,11 +21,11 @@ from PySide6.QtWidgets import (
 )
 from qfluentwidgets import PushButton
 
-from core.config import validate_archive_name
 from core.filesystem import normalize_user_path
 from core.models import COMPRESS_MODE_SEPARATE
 from gui.appearance.logo import LogoState
 from gui.appearance.theme import APP_NAME, STYLE_SHEET, create_app_icon, load_application_fonts
+from gui.config.naming import output_preview
 from gui.views.config_bar import ConfigBar
 from gui.views.dialogs import show_error, show_info, show_licenses
 from gui.views.layers_panel import LayersPanel
@@ -64,10 +64,14 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self.source.paths_changed.connect(self._sources_changed)
         self.source.mode_changed.connect(self._mode_changed)
+        self.source.selection_changed.connect(self._mode_changed)
+        self.layers.defaults_requested.connect(self.source.select_defaults)
         self.layers.add_requested.connect(self.add_layer)
         self.layers.card_changed.connect(self.update_summary)
-        self.layers.cards_changed.connect(self._mode_changed)
+        self.layers.cards_changed.connect(self.update_summary)
         self.layers.selection_changed.connect(lambda: self._show_compress_details(0))
+        self.layers.selection_changed.connect(self.update_summary)
+        self.layers.view_changed.connect(self.update_summary)
         self.output.directory_changed.connect(self.source.set_default_output_directory)
         self.output.changed.connect(self.update_summary)
         self.options.changed.connect(self.update_summary)
@@ -206,65 +210,42 @@ class MainWindow(QMainWindow):
         sources = self.source.paths()
         if sources:
             first = normalize_user_path(sources[0], self._config_dir)
-            self.layers.retemplate_defaults(first.stem)
             if not self.output.output_directory():
                 self.output.set_output_directory(str(first.parent))
         self._mode_changed()
 
     def _mode_changed(self) -> None:
         separate = self.source.mode() == COMPRESS_MODE_SEPARATE
-        self.layers.set_names_editable(not separate)
-        self.layers.set_sources(self.source.paths(), separate)
+        self.layers.set_sources(self.source.paths(), separate, self.source.selected_path())
         self.update_summary()
 
     def add_layer(self) -> None:
-        sources = self.source.paths()
-        self.layers.add_card(default_stem=Path(sources[0]).stem if sources else "layer")
+        self.layers.add_card()
 
     def update_summary(self) -> None:
+        self.layers.set_random_names(self.options.random_names_enabled())
         layers = self.layers.collect(strict=False)
         if self._active_kind is None:
             self.side.set_summary(
-                f"{len(self.source.paths())} 个来源，{len(layers)} 层压缩"
+                f"{len(self.source.paths())} 个来源，当前 {len(layers)} 层"
                 if self.workspace() == "compress" else "逐层恢复原始文件"
             )
         if not layers:
             self.output.set_preview("添加压缩层后显示最外层名称", "")
             return
-        outer = layers[-1]
-        name = outer.archive_name
-        if self.source.mode() == COMPRESS_MODE_SEPARATE and outer.name_template:
-            extension = outer.sfx.extension if outer.sfx.enabled else f".{outer.format}"
-            try:
-                name = outer.name_template.format(stem="{来源名}") + extension
-            except (KeyError, IndexError, AttributeError, ValueError):
-                self.output.set_preview("名称模板待完善", "请检查配置中的层名模板。")
-                return
-        if self.options.random_names_enabled():
-            name = "{随机名称}" + (outer.sfx.extension if outer.sfx.enabled else f".{outer.format}")
-        if not name:
-            self.output.set_preview("请填写最外层名称", "")
-            return
-        try:
-            name = validate_archive_name(
-                name, outer.format,
-                sfx_extension=outer.sfx.extension if outer.sfx.enabled else None,
-            )
-        except ValueError as error:
-            self.output.set_preview("文件名待完善", str(error))
-            return
-        if outer.disguise.mode == "video":
-            name = Path(name).stem + ".mp4"
-        elif outer.disguise.mode == "extension":
-            name = Path(name).stem + outer.disguise.extension
-        hints = ["最外层名称"]
-        if outer.volume_size:
-            hints.append(f"分卷大小 {outer.volume_size}")
-        if self.options.random_names_enabled():
-            hints.append("执行前生成随机名称")
+        sources = self.source.paths()
         if self.source.mode() == COMPRESS_MODE_SEPARATE:
-            hints.append("每个来源输出一套")
-        self.output.set_preview(name or "请填写最外层名称", "，".join(hints))
+            selected = self.source.selected_path()
+            if selected is None:
+                self.output.set_preview("输出预览", "选择来源后显示它的最终输出路径", [])
+                return
+            sources = [selected]
+        paths, hint = output_preview(
+            layers, sources, self.source.mode(),
+            self.output.output_directory(), self._config_dir,
+            random_names=self.options.random_names_enabled(),
+        )
+        self.output.set_preview("最终输出路径" if paths else "输出预览", hint, paths)
 
     def set_task_active(self, kind: str, active: bool) -> None:
         self._active_kind = kind if active else None
