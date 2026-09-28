@@ -48,6 +48,10 @@ python3 -m cli --config /data/task.json --yes --non-interactive --json
 | `--layer-password-file PATH` | UTF-8 单行密码，可有一个末尾换行，保留首尾空格；与本层直接密码互斥 |
 | `--layer-level auto\|0..5` | 本层压缩级别 |
 | `--layer-volume-size 100m` | 本层分卷大小 |
+| `--layer-disguise none\|extension\|video` | 本层伪装方式，显式方式优先 |
+| `--layer-disguise-extension .bin` | 本层扩展名，并启用扩展名伪装 |
+| `--layer-video MP4` | 本层默认载体，并启用视频伪装 |
+| `--layer-source-video SOURCE MP4` | 本层来源专用载体，并启用视频伪装，可重复 |
 | `--layer-recovery 1..100` | RAR 恢复记录比例 |
 | `--layer-sfx windows\|linux` | 启用本 RAR 层自解压，目标取决于接收者系统 |
 | `--layer-sfx-template PATH` | 官方模块或已制作的品牌样包；默认 auto |
@@ -72,7 +76,8 @@ python3 -m cli --config /data/task.json --yes --non-interactive --json
 `randomize-timestamps`、`verify-after-compress`、`cleanup-on-failure`、
 `persist-passwords`、`delete-inner-after-verify`。
 
-视频融合生成单个 `.mp4` 最外层成品；内部层可以分卷。已有单文件归档可
+各视频层生成单个 `.mp4`，再由下一层包裹；其他层可以分卷。任务级视频和扩展名参数
+继续作为最外层设置的快捷入口。已有单文件归档可
 使用 `--fuse-archive archive --video carrier.mp4 --output out` 独立融合；
 `--extract-video-archive fused.mp4 --output out` 提取原始归档。
 两种独立模式的 `--output` 是目录，`--overwrite-existing` 控制同名覆盖，
@@ -100,8 +105,8 @@ python3 -m cli --source /data/input --output /data/out --layer rar --layer-name 
 
 启动命令按用户要求填写，默认留空；相对路径以接收者解压目录为基准。
 Linux 原生目标只设置 target 和 template_path，其余 Windows 字段保持默认。
-任何 SFX 层参数都会启用自解压，未指定目标时为 windows。Windows 最外层
-SFX 需 `.exe`，与其他扩展名伪装冲突；最外层 SFX 与 MP4 融合互斥。
+任何 SFX 层参数都会启用自解压，未指定目标时为 windows。Windows
+SFX 层需 `.exe`，与其他扩展名伪装冲突；同层 SFX 与 MP4 融合互斥。
 可把 SFX 放内层再包普通外层。分卷必须分享 `final` 中的全部文件；Windows
 首卷 `.exe`、Linux 首卷 `.sfx`，后续 `.rar`。NestPack 解包不会执行 Setup。
 Logo 由下载后运行的 Windows SFX 展示，网盘预览取决于平台。
@@ -149,7 +154,8 @@ Logo 由下载后运行的 Windows SFX 展示，网盘预览取决于平台。
 `compress_mode`、`warnings`、`groups`。层结构为 `name`、`format`、
 `expected_files`、`password_set`、`recovery_percent`、`compression_level`、
 `volume_size`；分卷仅列首卷，密码只提供标记。
-融合任务的计划顶层另有 `video_fusion`，各层的 `video_path` 为实际载体
+计划顶层的 `video_fusion` 和 `disguise_outer_extension` 表示最外层方式；
+各层另有 `disguise_mode`，`video_path` 为实际载体
 绝对路径，普通层为 null；成品路径在 `final` 与 `expected_files` 中展示。
 层记录还含 `sfx_target`（windows / linux / null）；自解压的 format 仍为 rar。
 计划另含 `sfx_template`（实际模板绝对路径或 null）、`sfx_setup_set`（布尔）。

@@ -6,12 +6,13 @@ from dataclasses import replace
 from pathlib import Path
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from qfluentwidgets import LineEdit, PushButton
 
 from core.models import AppConfig
 from gui.appearance.theme import SPACE_SM
 from gui.config.paths import selection_directory
+from gui.views.file_dialog import pick_file
 from gui.views.widgets import SectionCard
 from platforms import resolve_optional_tool
 
@@ -83,8 +84,9 @@ class _ToolPathRow(QWidget):
 
     def _choose(self) -> None:
         start = selection_directory(self.value(), self.config_dir)
-        selected, _filter = QFileDialog.getOpenFileName(
-            self, f"选择 {self._title} 命令行程序", str(start), self._file_filter,
+        selected = pick_file(
+            self, title=f"选择 {self._title} 命令行程序", start_path=str(start),
+            file_filter=self._file_filter,
         )
         if selected:
             self.edit.setText(selected)

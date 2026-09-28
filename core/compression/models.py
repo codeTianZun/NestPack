@@ -12,7 +12,7 @@ from core.sfx import SfxPlan
 
 @dataclass(frozen=True)
 class LayerPlan:
-    """一层已展开的参数、工具和归档目标；最外层可指定伪装扩展名。"""
+    """一层已展开的参数、工具、归档目标及伪装设置。"""
 
     config: LayerConfig
     tool: Path

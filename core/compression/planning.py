@@ -7,7 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from core.backends import get_backend
-from core.config import validate_archive_name
+from core.config import parse_config, validate_archive_name
 from core.filesystem import normalize_user_path
 from core.models import (
     COMPRESS_MODE_SEPARATE,
@@ -72,7 +72,7 @@ def _plan_task(
     sources: tuple[Path, ...],
     output_directory: Path,
     tools: dict[str, Path],
-    video: Path | None = None,
+    videos: dict[int, Path],
     sfx_plans: dict[int, SfxPlan] | None = None,
 ) -> TaskPlan:
     """确定一套嵌套压缩包的层参数与输出命名。"""
@@ -104,11 +104,11 @@ def _plan_task(
                 config=replace(layer, archive_name=name),
                 tool=tools[layer.format],
                 destination=(output_directory / name).resolve(),
-                video=video if index == len(config.layers) - 1 else None,
+                video=videos.get(index),
                 sfx=(sfx_plans or {}).get(index),
                 disguise_extension=(
-                    config.disguise_extension
-                    if config.disguise_outer_extension and index == len(config.layers) - 1
+                    layer.disguise.extension
+                    if layer.disguise.mode == "extension"
                     else None
                 ),
             )
@@ -162,6 +162,7 @@ def build_compression_plan(
     config: AppConfig, config_path: Path | None = None
 ) -> CompressionPlan:
     """解析运行环境，按打包方式生成并校验全部任务。"""
+    config = parse_config(config.to_json_dict())
     if config.delete_inner_after_verify and not config.verify_after_compress:
         raise ConfigError(
             "delete_inner_after_verify 必须与 verify_after_compress 一起启用；"
@@ -180,12 +181,6 @@ def build_compression_plan(
         if layer.format != FORMAT_RAR:
             raise ConfigError(f"第 {index + 1} 层自解压需要选择 RAR 格式")
         sfx_plans[index] = resolve_sfx(layer.sfx, tools[FORMAT_RAR], config_directory)
-        if index == len(config.layers) - 1:
-            if config.video_fusion:
-                raise ConfigError("最外层自解压与 MP4 融合互斥；可将自解压设置放在内部 RAR 层")
-            if (layer.sfx.target == "windows" and config.disguise_outer_extension
-                    and config.disguise_extension.casefold() != ".exe"):
-                raise ConfigError("Windows 最外层自解压需要 .exe 后缀，请调整扩展名伪装设置")
         if index == 0 and layer.sfx.target == "windows":
             _validate_windows_sources(sources, config.hide_source_name)
         if layer.sfx.setup and (config.hide_source_name or config.randomize_layer_names):
@@ -194,26 +189,27 @@ def build_compression_plan(
             )
     if sfx_plans and config.add_padding:
         sfx_warnings.append("原生自解压会一并释放随机填充文件；NestPack 解包会清理填充文件。")
-    videos: dict[Path, Path] = {}
-    if config.video_fusion:
-        if config.layers[-1].volume_size:
-            raise ConfigError("视频融合的最外层应为单文件归档，请将分卷设置放在内部压缩层。")
+    videos: dict[Path, dict[int, Path]] = {source: {} for source in sources}
+    checked: set[Path] = set()
+    for index, layer in enumerate(config.layers):
+        disguise = layer.disguise
+        if disguise.mode != "video":
+            continue
         overrides = {
             normalize_user_path(source, config_directory): video
-            for source, video in config.source_video_paths.items()
+            for source, video in disguise.source_video_paths.items()
         }
-        checked: set[Path] = set()
         for source in sources:
-            raw_video = config.video_path
+            raw_video = disguise.video_path
             if config.compress_mode == COMPRESS_MODE_SEPARATE:
                 raw_video = overrides.get(source, "") or raw_video
             if not raw_video:
-                raise ConfigError(f"请为视频融合选择默认视频或来源专用视频：{source}")
+                raise ConfigError(f"第 {index + 1} 层请选择默认视频或来源专用视频：{source}")
             video = normalize_user_path(raw_video, config_directory)
             if video not in checked:
                 validate_video(video)
                 checked.add(video)
-            videos[source] = video
+            videos[source][index] = video
 
     tasks: list[TaskPlan] = []
     if config.compress_mode == COMPRESS_MODE_SEPARATE:
@@ -225,14 +221,14 @@ def build_compression_plan(
             seen_stems.add(stem)
             task_output = (output_directory / source.stem).resolve()
             tasks.append(_plan_task(
-                config, (source,), task_output, tools, videos.get(source), sfx_plans,
+                config, (source,), task_output, tools, videos[source], sfx_plans,
             ))
     else:
         tasks.append(_plan_task(
-            config, sources, output_directory, tools, videos.get(sources[0]), sfx_plans,
+            config, sources, output_directory, tools, videos[sources[0]], sfx_plans,
         ))
 
-    protected_inputs = (*sources, *videos.values(),
+    protected_inputs = (*sources, *checked,
                         *(path for item in sfx_plans.values() for path in item.resources))
     _validate_outputs(tasks, protected_inputs)
     for task in tasks:
@@ -255,7 +251,7 @@ def build_compression_plan(
         sevenzip=tools.get(FORMAT_7Z),
         warnings=(*sfx_warnings, *disk_warnings(
             config, list(sources), output_directory,
-            video_bytes=sum(task.layers[-1].video.stat().st_size for task in tasks
-                            if task.layers[-1].video is not None),
+            video_bytes=sum(layer.video.stat().st_size for task in tasks for layer in task.layers
+                            if layer.video is not None),
         )),
     )

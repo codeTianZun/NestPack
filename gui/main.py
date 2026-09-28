@@ -8,7 +8,7 @@ from typing import Literal
 
 from PySide6.QtCore import QObject, QTimer, QUrl, Slot
 from PySide6.QtGui import QCloseEvent, QDesktopServices
-from PySide6.QtWidgets import QApplication, QFileDialog
+from PySide6.QtWidgets import QApplication
 
 from core.compression import CompressionResult, build_compression_plan
 from core.logging_utils import setup_logging
@@ -21,6 +21,7 @@ from gui.tasks.compression import CompressionTask
 from gui.tasks.tools import ToolInstallTask
 from gui.tasks.unpack import UnpackTask
 from gui.views.dialogs import ask_yes_no, show_compression_result, show_error, show_info
+from gui.views.file_dialog import pick_config_save, pick_file
 from gui.views.main_window import MainWindow
 from gui.views.tool_dialogs import (
     confirm_missing_tools,
@@ -129,9 +130,9 @@ class GuiApplication(QObject):
         self._update_result_button()
 
     def load_config_dialog(self) -> None:
-        selected, _filter = QFileDialog.getOpenFileName(
-            self.window, "载入配置", str(self.config.path.parent),
-            "JSON 配置 (*.json);;所有文件 (*.*)",
+        selected = pick_file(
+            self.window, title="载入配置", start_path=str(self.config.path.parent),
+            file_filter="JSON 配置 (*.json);;所有文件 (*.*)", accept_text="载入配置",
         )
         if selected:
             try:
@@ -148,14 +149,10 @@ class GuiApplication(QObject):
             show_error(self.window, "无法保存配置", str(error))
 
     def save_config_as(self) -> None:
-        selected, _filter = QFileDialog.getSaveFileName(
-            self.window, "另存配置", str(self.config.path), "JSON 配置 (*.json)",
-        )
+        selected = pick_config_save(self.window, self.config.path)
         if not selected:
             return
         path = Path(selected)
-        if path.suffix.lower() != ".json":
-            path = path.with_suffix(".json")
         try:
             self.config.save(path.resolve())
         except (ValueError, OSError) as error:

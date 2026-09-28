@@ -1,4 +1,4 @@
-"""压缩任务的视频设置：默认载体与逐来源覆盖。"""
+"""单层的视频设置：默认载体与逐来源覆盖。"""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ class VideoSettingsDialog(QDialog):
         self._overrides = dict(overrides)
         self._editors: dict[str, LineEdit] = {}
         root = QVBoxLayout(self)
-        hint = QLabel("每套归档生成一个 MP4，保持原视频画面和声音。最外层使用单文件归档。")
+        hint = QLabel("为本层选择载体视频，保留原视频画面和声音。本层使用单文件归档。")
         hint.setWordWrap(True)
         root.addWidget(hint)
         self.default_edit = LineEdit()

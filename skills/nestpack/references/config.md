@@ -53,14 +53,14 @@ zip 层时解析；7z 家族工具可用 7z.exe / 7za.exe / 7zr.exe / 7zz / 7z�
 - `compress_mode`：`"combined"`（默认，全部来源合并压成一个压缩包）
   或 `"separate"`（每个来源分别压成自己的压缩包，输出目录下按来源名
   分目录）。
-- `video_fusion`：布尔值，默认 false。启用后最外层归档与载体融合为单个 MP4；
-  该层的 `volume_size` 为 null，内部层可分卷。
-- `video_path`：默认 MP4 载体路径，默认空字符串。
-- `source_video_paths`：来源路径到专用 MP4 路径的对象，默认 `{}`；
-  separate 模式按来源覆盖默认视频，combined 模式使用默认视频。
 
 每层（`layers[]`）：
 
+- `disguise`：逐层伪装对象，缺省为 `{"mode":"none","extension":".bin","video_path":"","source_video_paths":{}}`。
+  mode 可选 none / extension / video。extension 为以点开头的 1–8 位字母数字。
+  video_path 是本层默认载体，source_video_paths 按来源覆盖本层载体，合并打包使用默认值。
+  视频层使用完整单文件归档，volume_size 为 null、sfx.enabled 为 false。
+  下一层打包本层伪装后的全部产物。
 - `format`：`"rar"`（缺省）、`"7z"` 或 `"zip"`；逐层独立、允许混合
   嵌套（RAR 套 7z 套 zip 等）。7z 层密码用 `-p + -mhe=on`（全加密头，
   等价 -hp）；zip 层由 7-Zip 以 `-tzip` 创建，密码用 `-p` +
@@ -90,7 +90,7 @@ zip 层时解析；7z 家族工具可用 7z.exe / 7za.exe / 7zr.exe / 7zz / 7z�
   zip 为 `名.zip.001`；外层包裹全部分卷，交替删除整层全删，伪装对
   每卷改扩展名并保留卷号。
 
-顶层隐私与归档开关为布尔值（`disguise_extension` 为字符串）；`verify_after_compress`、
+顶层隐私与归档开关为布尔值；`verify_after_compress`、
 `delete_inner_after_verify` 与 `persist_passwords` 缺省 true，其余缺省 false：
 
 - `add_padding`：每层加入 16KiB~1MiB 的随机填充文件，使每次归档的
@@ -98,8 +98,6 @@ zip 层时解析；7z 家族工具可用 7z.exe / 7za.exe / 7zr.exe / 7zz / 7z�
 - `randomize_layer_names`：开始压缩时生成 8 位随机文件名；CLI 显式保存配置时才落盘。
 - `hide_source_name`：第 1 层用随机别名打包（文件硬链接/文件夹复制），
   隐藏根条目原名；内部文件名不变。解包后根条目是别名，原名不可恢复。
-- `disguise_outer_extension`：把最外层压缩包改为 `disguise_extension` 指定的扩展名。
-- `disguise_extension`：字符串，默认 `.bin`，以点开头的 1–8 位字母数字。
 - `randomize_timestamps`：随机化最外层修改时间。
 - `verify_after_compress`：每层后运行 t 自检，失败保留旧包。
 - `cleanup_on_failure`：任务失败或取消时删除该任务本次已生成的层产物；
@@ -108,6 +106,8 @@ zip 层时解析；7z 家族工具可用 7z.exe / 7za.exe / 7zr.exe / 7zz / 7z�
 - `delete_inner_after_verify`：交替删除——每层自检通过后删除上一层，
   只保留最外层，省磁盘。
 
+旧 v1 顶层的扩展名和视频设置在加载时迁入最外层，显式逐层 disguise 优先；保存统一写逐层结构。
+
 相对路径以 JSON 配置文件所在目录为基准。
 视频路径与来源覆盖表的键和值同样以该目录为基准。融合成品使用 `.mp4`
 后缀，原归档格式及密码保持原有层设置。
@@ -115,7 +115,7 @@ zip 层时解析；7z 家族工具可用 7z.exe / 7za.exe / 7zr.exe / 7zz / 7z�
 ## 推荐组合
 
 - 隐私保护归档（按需使用）：`add_padding` + `randomize_layer_names` +
-  `hide_source_name` + `disguise_outer_extension`，每层设密码。
+  `hide_source_name`，需要伪装的层设置 `disguise.mode=extension`，每层设密码。
 - 归档省磁盘：`verify_after_compress` + `delete_inner_after_verify`。
 - 大体积已压缩源（视频/镜像）：`compression_level` 用 auto 或 0，
   别用 -m5 烧 CPU。

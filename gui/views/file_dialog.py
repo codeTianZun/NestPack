@@ -22,7 +22,12 @@ from PySide6.QtWidgets import (
 )
 
 from gui.appearance.file_dialog import style_file_dialog
-from gui.config.storage import load_recent_output_dirs, remember_output_dir
+from gui.config.storage import (
+    load_file_dialog_size,
+    load_recent_output_dirs,
+    remember_file_dialog_size,
+    remember_output_dir,
+)
 from gui.views.dialogs import show_info
 
 # 各模式的项目专属提示文案，拼入 windowTitle 承载。
@@ -49,6 +54,7 @@ class _MixedSourceDialog(QFileDialog):
         self._accept_button: QPushButton | None = None
         self.setOption(QFileDialog.Option.DontUseNativeDialog, True)
         self.setFileMode(QFileDialog.FileMode.Directory)
+        self.setNameFilter("文件与文件夹 (*)")
         views = (self.findChild(QListView, "listView"), self.findChild(QTreeView))
         if any(view is not None for view in views):
             for view in views:
@@ -108,12 +114,27 @@ class _MixedSourceDialog(QFileDialog):
             self._accept_button.setEnabled(True)
 
 
+class _ConfigSaveDialog(QFileDialog):
+    """在 Qt 校验与覆盖确认前确定配置文件的 JSON 后缀。"""
+
+    def accept(self) -> None:
+        selected = self.selectedFiles()
+        if selected:
+            path = Path(selected[0])
+            if not path.is_dir() and path.suffix.lower() != ".json":
+                edit = self.findChild(QLineEdit, "fileNameEdit")
+                if edit is not None:
+                    edit.clearFocus()
+                self.selectFile(str(path.with_suffix(".json")))
+        super().accept()
+
+
 def _system_shortcut_urls() -> list[QUrl]:
     """收集桌面/下载/文档/主目录等系统快捷位置的 URL。"""
     locations = [
         QStandardPaths.StandardLocation.DesktopLocation,
-        QStandardPaths.StandardLocation.DocumentsLocation,
         QStandardPaths.StandardLocation.DownloadLocation,
+        QStandardPaths.StandardLocation.DocumentsLocation,
         QStandardPaths.StandardLocation.HomeLocation,
     ]
     urls: list[QUrl] = []
@@ -137,21 +158,18 @@ def _drive_urls() -> list[QUrl]:
 
 
 def _apply_sidebar(dialog: QFileDialog, default_output: str) -> None:
-    """重设侧栏 URL：默认输出目录 + 最近输出目录 + 系统快捷位置 + 所有盘根。"""
+    """按常用位置、磁盘、当前输出和最近输出的顺序设置侧栏。"""
     dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-    urls: list[QUrl] = []
+    urls = _system_shortcut_urls()
+    for url in _drive_urls():
+        if url not in urls:
+            urls.append(url)
     if default_output and Path(default_output).is_dir():
         url = QUrl.fromLocalFile(default_output)
         if url not in urls:
             urls.append(url)
     for path in load_recent_output_dirs():
         url = QUrl.fromLocalFile(path)
-        if url not in urls:
-            urls.append(url)
-    for url in _system_shortcut_urls():
-        if url not in urls:
-            urls.append(url)
-    for url in _drive_urls():
         if url not in urls:
             urls.append(url)
     dialog.setSidebarUrls(urls)
@@ -161,10 +179,21 @@ def _prepare_dialog(
     dialog: QFileDialog, *, tip: str, accept_text: str, start_path: str,
     default_output: str = "",
 ) -> None:
-    """统一设置起始目录、侧栏与外观。"""
+    """统一设置目录与外观，恢复并记录用户调整的窗口尺寸。"""
     _ensure_directory(dialog, start_path)
     _apply_sidebar(dialog, default_output)
-    style_file_dialog(dialog, tip=tip, accept_text=accept_text)
+    style_file_dialog(
+        dialog, tip=tip, accept_text=accept_text,
+        size=load_file_dialog_size() or (720, 460),
+    )
+    initial_size = dialog.size()
+
+    def remember_size(_result: int) -> None:
+        size = dialog.normalGeometry().size()
+        if size != initial_size:
+            remember_file_dialog_size(size.width(), size.height())
+
+    dialog.finished.connect(remember_size)
 
 
 def _ensure_directory(dialog: QFileDialog, start_path: str) -> None:
@@ -203,6 +232,7 @@ def pick_directory(
     dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
     dialog.setFileMode(QFileDialog.FileMode.Directory)
     dialog.setOption(QFileDialog.Option.ShowDirsOnly, True)
+    dialog.setNameFilter("文件夹 (*)")
     _prepare_dialog(
         dialog,
         tip=title,
@@ -219,19 +249,23 @@ def pick_directory(
     return None
 
 
-def pick_archive(
+def pick_file(
     parent: QWidget,
+    *,
+    title: str,
     start_path: str,
+    file_filter: str,
+    accept_text: str = "选择文件",
 ) -> str | None:
-    """弹出单文件选择对话框用于选最外层压缩包，返回选中文件或 None。"""
+    """按指定类型选择单个现有文件，共用导航与外观。"""
     dialog = QFileDialog(parent)
     dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
     dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
-    dialog.setNameFilter("所有文件 (*.*)")
+    dialog.setNameFilter(file_filter)
     _prepare_dialog(
         dialog,
-        tip=_TIP_ARCHIVE,
-        accept_text=_ACCEPT_ARCHIVE,
+        tip=title,
+        accept_text=accept_text,
         start_path=start_path,
         default_output="",
     )
@@ -242,19 +276,20 @@ def pick_archive(
     return None
 
 
+def pick_archive(parent: QWidget, start_path: str) -> str | None:
+    """选择最外层压缩包，返回选中文件或 None。"""
+    return pick_file(
+        parent, title=_TIP_ARCHIVE, start_path=start_path,
+        file_filter="所有文件 (*.*)", accept_text=_ACCEPT_ARCHIVE,
+    )
+
+
 def pick_video(parent: QWidget, start_path: str) -> str | None:
     """选择 MP4 载体或融合视频，沿用统一文件选择器外观。"""
-    dialog = QFileDialog(parent)
-    dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-    dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
-    dialog.setNameFilter("MP4 视频 (*.mp4);;所有文件 (*.*)")
-    _prepare_dialog(dialog, tip="选择 MP4 视频", accept_text="选择视频",
-                    start_path=start_path, default_output="")
-    if dialog.exec() == QFileDialog.DialogCode.Accepted:
-        result = dialog.selectedFiles()
-        if result:
-            return result[0]
-    return None
+    return pick_file(
+        parent, title="选择 MP4 视频", start_path=start_path,
+        file_filter="MP4 视频 (*.mp4);;所有文件 (*.*)", accept_text="选择视频",
+    )
 
 
 def pick_sfx_resource(parent: QWidget, start_path: str, kind: str) -> str | None:
@@ -264,11 +299,23 @@ def pick_sfx_resource(parent: QWidget, start_path: str, kind: str) -> str | None
         "icon_path": ("ICO 图标", "图标 (*.ico);;所有文件 (*)"),
         "logo_path": ("界面 Logo", "图片 (*.png *.bmp);;所有文件 (*)"),
     }[kind]
-    dialog = QFileDialog(parent)
+    return pick_file(
+        parent, title=f"选择{title}", start_path=start_path, file_filter=filters,
+    )
+
+
+def pick_config_save(parent: QWidget, current_path: Path) -> str | None:
+    """选择配置另存位置，预填当前文件名并由 Qt 确认覆盖。"""
+    dialog = _ConfigSaveDialog(parent)
     dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-    dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
-    dialog.setNameFilter(filters)
-    _prepare_dialog(dialog, tip=f"选择{title}", accept_text="选择文件", start_path=start_path)
+    dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+    dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+    dialog.setNameFilter("JSON 配置 (*.json)")
+    dialog.setDefaultSuffix("json")
+    _prepare_dialog(
+        dialog, tip="另存配置", accept_text="保存配置", start_path=str(current_path.parent),
+    )
+    dialog.selectFile(current_path.name)
     if dialog.exec() == QFileDialog.DialogCode.Accepted:
         result = dialog.selectedFiles()
         if result:
@@ -276,4 +323,7 @@ def pick_sfx_resource(parent: QWidget, start_path: str, kind: str) -> str | None
     return None
 
 
-__all__ = ["pick_archive", "pick_directory", "pick_sources", "pick_video", "pick_sfx_resource"]
+__all__ = [
+    "pick_archive", "pick_config_save", "pick_directory", "pick_file",
+    "pick_sfx_resource", "pick_sources", "pick_video",
+]

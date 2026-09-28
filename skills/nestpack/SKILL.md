@@ -34,7 +34,7 @@ stdout 为任务结果 JSON，stderr 为进度与诊断；帮助和版本查询�
 
 `delete_inner_after_verify` 依赖 `verify_after_compress`；交替删除只处理本次
 生成的中间层。ZIP 文件名公开，ZIP 密码仅支持 ASCII。源名称别名化只改根条目，
-解包不会恢复原名。最外层调整扩展名后仍可按内容解包。
+解包不会恢复原名。任意层调整扩展名或融合 MP4 后仍可逐层解包。
 
 只处理用户指定的来源与输出。覆盖由任务的 `overwrite_existing` 控制；
 `--yes` 只跳过确认。失败后的处理见 CLI 参考，已有输出冲突应先确定交付位置

@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from core.backends import ArchiveBackend, detect_archive_format, iter_backends
+from core.cancellation import Cancellation
 from core.models import FORMAT_RAR
+from core.video import inspect_video_archive
+
+from .volumes import find_disguised_volume_set
 
 # 识别载荷时忽略填充文件，包括当前的 12 位十六进制 .dat 名称，
 # 以及已有归档中 stack_pad_ 加 8 位十六进制名的 .bin 文件。
@@ -26,7 +30,9 @@ class ExtractedContent:
     archive_format: str = ""
 
 
-def classify_extracted(directory: Path) -> ExtractedContent:
+def classify_extracted(
+    directory: Path, cancellation: Cancellation | None = None,
+) -> ExtractedContent:
     """判断一层解出的内容是中间压缩层还是最终载荷。
 
     忽略随机填充后，单个压缩包或从 1 开始连续编号的分卷套视为中间层。
@@ -43,6 +49,18 @@ def classify_extracted(directory: Path) -> ExtractedContent:
     files = [entry for entry in entries if entry.is_file()]
     if not files or len(files) != len(entries):
         return ExtractedContent(False, ())
+    if len(files) == 1 and detect_archive_format(files[0]) is None:
+        video = inspect_video_archive(files[0], cancellation)
+        if video is not None:
+            return ExtractedContent(True, (files[0],), video.format)
+    for candidate in files:
+        if cancellation is not None:
+            cancellation.check()
+        disguised = find_disguised_volume_set(candidate)
+        if disguised is not None:
+            disguised_volumes, _base, backend = disguised
+            if set(disguised_volumes) == set(files):
+                return ExtractedContent(True, tuple(disguised_volumes), backend.format_name)
     for backend in iter_backends():
         volumes = _ordered_volume_set(files, backend)
         if volumes is None or detect_archive_format(volumes[0]) != backend.format_name:

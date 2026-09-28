@@ -4,10 +4,18 @@
 FILE_DIALOG_STYLE = """
 QFileDialog { background: #FCFAFE; }
 QFileDialog QLabel { color: #2D3249; }
-QFileDialog QSplitter, QFileDialog QSplitter::handle {
+QFileDialog QSplitter {
     background: transparent;
     border: none;
 }
+QFileDialog QSplitter::handle:horizontal {
+    background: #DAD2E6;
+    width: 6px;
+    border: none;
+    border-radius: 3px;
+    margin: 4px 1px;
+}
+QFileDialog QSplitter::handle:horizontal:hover { background: #BAAFC9; }
 QFileDialog QToolBar, QFileDialog QToolBar::separator {
     background: transparent;
     border: none;
@@ -42,6 +50,8 @@ QFileDialog QScrollBar:horizontal {
     border: none;
     margin: 0;
 }
+QFileDialog QScrollBar:vertical { width: 10px; }
+QFileDialog QScrollBar:horizontal { height: 10px; }
 QFileDialog QScrollBar::handle:vertical {
     background: #BAAFC9;
     border-radius: 4px;
@@ -73,10 +83,12 @@ QFileDialog QListView#sidebar {
     border-radius: 8px;
 }
 QFileDialog QListView#sidebar::item {
-    padding: 8px 10px;
+    height: 22px;
+    padding: 4px 8px;
     border-radius: 6px;
     color: #2D3249;
 }
+QFileDialog QListView#sidebar::item:hover { background: #E8DDF1; }
 QFileDialog QListView#sidebar::item:selected {
     background: #E8DDF1;
     color: #725196;
@@ -104,15 +116,17 @@ QFileDialog QLineEdit#fileNameEdit {
     padding: 4px 8px;
     background: #FFFFFF;
     color: #2D3249;
+    selection-background-color: #E8DDF1;
+    selection-color: #725196;
 }
 QFileDialog QLineEdit#fileNameEdit:focus {
     border-color: #725196;
 }
 QFileDialog QToolButton,
 QFileDialog QToolBar QToolButton {
-    background: #FFFFFF;
-    border: 1px solid #BAAFC9;
-    padding: 4px;
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 6px;
     border-radius: 6px;
 }
 QFileDialog QToolButton:hover,
@@ -120,10 +134,9 @@ QFileDialog QToolBar QToolButton:hover {
     background: #E8DDF1;
     border-color: #725196;
 }
-QFileDialog QToolButton:pressed,
-QFileDialog QToolBar QToolButton:pressed {
-    background: #725196;
-    color: #FFFFFF;
+QFileDialog QToolButton:pressed, QFileDialog QToolButton:checked {
+    background: #E8DDF1;
+    border-color: #BAAFC9;
 }
 QFileDialog QToolButton:disabled,
 QFileDialog QToolBar QToolButton:disabled {

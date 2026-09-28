@@ -31,12 +31,14 @@ def freeze_config_paths(config: AppConfig, config_dir: Path) -> AppConfig:
         output_directory=local_path(config.output_directory),
         winrar_path=tool_path(config.winrar_path),
         sevenzip_path=tool_path(config.sevenzip_path),
-        video_path=local_path(config.video_path),
-        source_video_paths={
-            local_path(source): local_path(video)
-            for source, video in config.source_video_paths.items()
-        },
-        layers=[replace(layer, sfx=replace(
+        layers=[replace(layer, disguise=replace(
+            layer.disguise,
+            video_path=local_path(layer.disguise.video_path),
+            source_video_paths={
+                local_path(source): local_path(video)
+                for source, video in layer.disguise.source_video_paths.items()
+            },
+        ), sfx=replace(
             layer.sfx,
             template_path=tool_path(layer.sfx.template_path),
             icon_path=local_path(layer.sfx.icon_path),

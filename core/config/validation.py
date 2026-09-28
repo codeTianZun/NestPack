@@ -13,6 +13,7 @@ from core.models import (
     FORMAT_RAR,
     FORMAT_ZIP,
     ConfigError,
+    DisguiseConfig,
     LayerConfig,
 )
 from platforms import get_archive_platform
@@ -59,7 +60,7 @@ def validate_volume_size(value: str) -> None:
 
 
 def validate_disguise_extension(value: str) -> None:
-    """校验最外层伪装扩展名。"""
+    """校验层产物的伪装扩展名。"""
     if not DISGUISE_EXTENSION_PATTERN.fullmatch(value):
         raise ValueError("伪装扩展名必须是以点开头的 1-8 位字母数字（如 .bin、.dat）")
 
@@ -103,6 +104,35 @@ def parse_compression_level(raw_value: Any, location: str) -> str | int:
     raise ConfigError(
         f"{location}.compression_level 必须是 \"auto\" "
         f"或 {COMPRESSION_LEVEL_MIN} 到 {COMPRESSION_LEVEL_MAX} 的整数"
+    )
+
+
+def parse_disguise_config(raw: Any, location: str, *, strict: bool) -> DisguiseConfig:
+    """读取逐层伪装设置；草稿保留扩展名的未完成输入。"""
+    if not isinstance(raw, dict):
+        raise ConfigError(f"{location} 必须是 JSON 对象")
+    mode = raw.get("mode", "none")
+    if mode not in ("none", "extension", "video"):
+        raise ConfigError(f"{location}.mode 必须是 none、extension 或 video")
+    extension = raw.get("extension", ".bin")
+    video = raw.get("video_path", "")
+    overrides = raw.get("source_video_paths", {})
+    if not isinstance(extension, str):
+        raise ConfigError(f"{location}.extension 必须是字符串")
+    if not isinstance(video, str):
+        raise ConfigError(f"{location}.video_path 必须是字符串")
+    if not isinstance(overrides, dict) or not all(
+        isinstance(source, str) and isinstance(path, str) for source, path in overrides.items()
+    ):
+        raise ConfigError(f"{location}.source_video_paths 必须是来源路径到视频路径的对象")
+    if strict and mode == "extension":
+        try:
+            validate_disguise_extension(extension.strip())
+        except ValueError as error:
+            raise ConfigError(f"{location}.extension：{error}") from error
+    return DisguiseConfig(
+        mode=mode, extension=extension.strip(), video_path=video.strip(),
+        source_video_paths={source: path.strip() for source, path in overrides.items()},
     )
 
 
@@ -203,6 +233,18 @@ def parse_layer_config(
         raw_layer, "password_set", location, default=bool(password)
     )
 
+    disguise = parse_disguise_config(
+        raw_layer.get("disguise", {}), f"{location}.disguise", strict=strict,
+    )
+    if strict:
+        if disguise.mode == "video" and volume_size:
+            raise ConfigError(f"{location}：视频伪装需要单文件归档，请关闭本层分卷")
+        if disguise.mode == "video" and sfx.enabled:
+            raise ConfigError(f"{location}：视频伪装与本层自解压互斥，请选择其中一种")
+        if (sfx.enabled and sfx.target == "windows" and disguise.mode == "extension"
+                and disguise.extension.casefold() != ".exe"):
+            raise ConfigError(f"{location}：Windows 自解压需要 .exe 后缀")
+
     return LayerConfig(
         archive_name=archive_name,
         password=password,
@@ -213,4 +255,5 @@ def parse_layer_config(
         volume_size=volume_size,
         password_set=password_set,
         sfx=sfx,
+        disguise=disguise,
     )

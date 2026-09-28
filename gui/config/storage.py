@@ -1,4 +1,4 @@
-"""GUI 持久化纯逻辑：默认配置、最近配置路径与最近输出目录。"""
+"""GUI 持久化纯逻辑：默认配置、最近路径与文件选择框尺寸。"""
 
 from __future__ import annotations
 
@@ -121,4 +121,24 @@ def remember_output_dir(
     existing = load_recent_output_dirs(state_path)
     remaining = [p for p in existing if p.casefold() != target.casefold()]
     state["recent_output_dirs"] = [target, *remaining][:max_n]
+    _save_gui_state(state_path, state)
+
+
+def load_file_dialog_size(state_path: Path = GUI_STATE_PATH) -> tuple[int, int] | None:
+    """读取用户调整后的文件选择框宽高，缺省或无效时返回 None。"""
+    size = _load_gui_state(state_path).get("file_dialog_size")
+    if (
+        not isinstance(size, list) or len(size) != 2
+        or any(type(value) is not int or value <= 0 for value in size)
+    ):
+        return None
+    return size[0], size[1]
+
+
+def remember_file_dialog_size(
+    width: int, height: int, state_path: Path = GUI_STATE_PATH,
+) -> None:
+    """保存所有文件选择框共用的宽高，保留其他 GUI 状态。"""
+    state = _load_gui_state(state_path)
+    state["file_dialog_size"] = [width, height]
     _save_gui_state(state_path, state)

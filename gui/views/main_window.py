@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QPushButton,
     QScrollArea,
+    QSplitter,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -66,6 +67,7 @@ class MainWindow(QMainWindow):
         self.layers.add_requested.connect(self.add_layer)
         self.layers.card_changed.connect(self.update_summary)
         self.layers.cards_changed.connect(self._mode_changed)
+        self.layers.selection_changed.connect(lambda: self._show_compress_details(0))
         self.output.directory_changed.connect(self.source.set_default_output_directory)
         self.output.changed.connect(self.update_summary)
         self.options.changed.connect(self.update_summary)
@@ -106,8 +108,8 @@ class MainWindow(QMainWindow):
         row.addWidget(about)
         layout.addWidget(header)
         layout.addWidget(self.config_bar)
-        content = QHBoxLayout()
-        content.setSpacing(0)
+        content = QSplitter(Qt.Orientation.Horizontal)
+        content.setChildrenCollapsible(False)
         self.workspaces = QStackedWidget()
         compress = QWidget()
         editor = QVBoxLayout(compress)
@@ -123,21 +125,50 @@ class MainWindow(QMainWindow):
         unpack_layout.setContentsMargins(24, 20, 24, 20)
         unpack_layout.addWidget(self.unpack)
         self.workspaces.addWidget(self._scroll(unpack))
-        content.addWidget(self.workspaces, 1)
+        self.workspaces.setMinimumWidth(420)
+        content.addWidget(self.workspaces)
 
         delivery = QFrame()
         delivery.setObjectName("deliveryPanel")
-        delivery.setFixedWidth(350)
+        delivery.setMinimumWidth(420)
         delivery_layout = QVBoxLayout(delivery)
         delivery_layout.setContentsMargins(20, 20, 20, 16)
         delivery_layout.setSpacing(16)
         self.outputs = QStackedWidget()
-        self.outputs.addWidget(self.output)
-        self.outputs.addWidget(self.unpack.output_panel)
-        delivery_layout.addWidget(self._scroll(self.outputs), 1)
+        compress_details = QWidget()
+        details_layout = QVBoxLayout(compress_details)
+        details_layout.setContentsMargins(0, 0, 0, 0)
+        details_layout.setSpacing(16)
+        detail_tabs = QHBoxLayout()
+        self.detail_navigation = QButtonGroup(self)
+        for index, title in enumerate(("层设置", "任务输出")):
+            button = QPushButton(title)
+            button.setObjectName("detailTab")
+            button.setCheckable(True)
+            button.setChecked(index == 0)
+            self.detail_navigation.addButton(button, index)
+            button.clicked.connect(
+                lambda _checked=False, value=index: self._show_compress_details(value)
+            )
+            detail_tabs.addWidget(button)
+        details_layout.addLayout(detail_tabs)
+        self.compress_details = QStackedWidget()
+        self.compress_details.addWidget(self.layers.editors)
+        self.compress_details.addWidget(self._scroll(self.output))
+        details_layout.addWidget(self.compress_details, 1)
+        self.outputs.addWidget(compress_details)
+        self.outputs.addWidget(self._scroll(self.unpack.output_panel))
+        delivery_layout.addWidget(self.outputs, 1)
         delivery_layout.addWidget(self.side)
         content.addWidget(delivery)
-        layout.addLayout(content, 1)
+        content.setSizes([660, 580])
+        content.setStretchFactor(0, 1)
+        content.setStretchFactor(1, 1)
+        layout.addWidget(content, 1)
+
+    def _show_compress_details(self, index: int) -> None:
+        self.compress_details.setCurrentIndex(index)
+        self.detail_navigation.button(index).setChecked(True)
 
     @staticmethod
     def _scroll(content: QWidget) -> QScrollArea:
@@ -183,7 +214,7 @@ class MainWindow(QMainWindow):
     def _mode_changed(self) -> None:
         separate = self.source.mode() == COMPRESS_MODE_SEPARATE
         self.layers.set_names_editable(not separate)
-        self.output.set_sources(self.source.paths(), separate)
+        self.layers.set_sources(self.source.paths(), separate)
         self.update_summary()
 
     def add_layer(self) -> None:
@@ -222,10 +253,10 @@ class MainWindow(QMainWindow):
         except ValueError as error:
             self.output.set_preview("文件名待完善", str(error))
             return
-        if self.output.mode() == "video":
+        if outer.disguise.mode == "video":
             name = Path(name).stem + ".mp4"
-        elif self.output.mode() == "extension":
-            name = Path(name).stem + self.output.extension_edit.text().strip()
+        elif outer.disguise.mode == "extension":
+            name = Path(name).stem + outer.disguise.extension
         hints = ["最外层名称"]
         if outer.volume_size:
             hints.append(f"分卷大小 {outer.volume_size}")

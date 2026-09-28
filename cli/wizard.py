@@ -23,7 +23,7 @@ from cli.sfx import edit_sfx
 from core.backends import get_backend
 from core.config import validate_disguise_extension, validate_password, validate_volume_size
 from core.filesystem import normalize_user_path
-from core.models import FORMAT_RAR, AppConfig, ConfigError, LayerConfig
+from core.models import FORMAT_RAR, AppConfig, ConfigError, DisguiseConfig, LayerConfig
 from platforms import get_archive_platform
 
 
@@ -44,16 +44,18 @@ def print_task_settings(config: AppConfig) -> None:
         print(f"  来源：{source}")
     print(f"  输出：{config.output_directory or '尚未设置'}")
     print(f"  打包：{'分别打包' if config.compress_mode == 'separate' else '合并打包'}")
-    if config.video_fusion:
-        print(f"  视频融合：默认 {config.video_path or '尚未设置'}")
-        for source, video in config.source_video_paths.items():
-            print(f"    {source} → {video}")
     for index, layer in enumerate(config.layers, start=1):
         state = "已设置" if layer.password else "待补充" if layer.password_set else "无"
         print(
             f"  第 {index} 层：{layer.archive_name}（{layer.format}），密码：{state}，"
             f"级别：{layer.compression_level}，分卷：{layer.volume_size or '关闭'}"
         )
+        if layer.disguise.mode == "extension":
+            print(f"    伪装扩展名：{layer.disguise.extension}")
+        elif layer.disguise.mode == "video":
+            print(f"    视频伪装：默认 {layer.disguise.video_path or '尚未设置'}")
+            for source, video in layer.disguise.source_video_paths.items():
+                print(f"      {source} → {video}")
         if layer.sfx.enabled:
             print(f"    自解压：{layer.sfx.target}，模板：{layer.sfx.template_path}")
 
@@ -118,7 +120,9 @@ def _ask_volume(current: str | None) -> str | None:
             print(error)
 
 
-def _edit_layer(layer: LayerConfig, index: int, forbidden: set[str]) -> LayerConfig:
+def _edit_layer(
+    layer: LayerConfig, index: int, forbidden: set[str], config: AppConfig,
+) -> LayerConfig:
     while True:
         print(f"\n第 {index} 层：{layer.archive_name}（{layer.format}）")
         choice = ask_menu(
@@ -132,6 +136,7 @@ def _edit_layer(layer: LayerConfig, index: int, forbidden: set[str]) -> LayerCon
                 6: f"恢复记录：{layer.recovery_percent or '关闭'}",
                 7: f"分别打包的层名模板：{layer.name_template or '使用固定文件名'}",
                 8: f"自解压：{layer.sfx.target if layer.sfx.enabled else '关闭'}",
+                9: "伪装方式与载体视频",
                 0: "返回",
             },
             default=0,
@@ -187,6 +192,8 @@ def _edit_layer(layer: LayerConfig, index: int, forbidden: set[str]) -> LayerCon
                 sfx.extension if sfx.enabled else get_backend(layer.format).archive_extension
             )
             layer = replace(layer, sfx=sfx, archive_name=Path(layer.archive_name).stem + extension)
+        elif choice == 9:
+            layer = replace(layer, disguise=_edit_disguise(layer.disguise, config))
 
 
 def _select_layer(layers: list[LayerConfig]) -> int:
@@ -224,7 +231,7 @@ def _edit_layers(config: AppConfig) -> AppConfig:
             forbidden = {
                 item.archive_name.casefold() for i, item in enumerate(layers) if i != index
             }
-            layers[index] = _edit_layer(layers[index], index + 1, forbidden)
+            layers[index] = _edit_layer(layers[index], index + 1, forbidden, config)
         elif choice == 3:
             if len(layers) == 1:
                 print("任务至少需要保留一层。")
@@ -250,13 +257,12 @@ PRIVACY_SETTINGS = {
     "add_padding": "添加随机填充",
     "randomize_layer_names": "随机层名",
     "hide_source_name": "来源根名称使用随机别名",
-    "disguise_outer_extension": "调整最外层扩展名",
     "randomize_timestamps": "随机化最外层修改时间",
 }
 
 
 def _edit_switches(
-    config: AppConfig, labels: dict[str, str], *, privacy: bool = False
+    config: AppConfig, labels: dict[str, str]
 ) -> AppConfig:
     fields = list(labels)
     while True:
@@ -264,21 +270,10 @@ def _edit_switches(
             i: f"{labels[field]}：{'开启' if getattr(config, field) else '关闭'}"
             for i, field in enumerate(fields, start=1)
         }
-        if privacy:
-            options[len(fields) + 1] = f"最外层扩展名：{config.disguise_extension}"
         options[0] = "返回"
         choice = ask_menu("选择要修改的设置", options, default=0)
         if choice == 0:
             return config
-        if privacy and choice == len(fields) + 1:
-            raw = input("扩展名（如 .bin，回车保留）：").strip()
-            if raw:
-                try:
-                    validate_disguise_extension(raw)
-                    config = replace(config, disguise_extension=raw)
-                except ValueError as error:
-                    print(error)
-            continue
         field = fields[choice - 1]
         enabled = not getattr(config, field)
         updates: dict[str, Any] = {field: enabled}
@@ -332,7 +327,6 @@ def edit_config(config: AppConfig) -> AppConfig:
                 5: "归档与保存选项",
                 6: "隐私选项",
                 7: "工具路径与界面",
-                8: "视频融合与载体选择",
                 0: "完成编辑",
             },
             default=0,
@@ -358,21 +352,33 @@ def edit_config(config: AppConfig) -> AppConfig:
         elif choice == 5:
             config = _edit_switches(config, ARCHIVE_SETTINGS)
         elif choice == 6:
-            config = _edit_switches(config, PRIVACY_SETTINGS, privacy=True)
+            config = _edit_switches(config, PRIVACY_SETTINGS)
         elif choice == 7:
             config = _edit_tools(config)
-        elif choice == 8:
-            config = _edit_video(config)
 
 
-def _edit_video(config: AppConfig) -> AppConfig:
-    """设置默认载体及按来源覆盖的视频，空专用路径使用默认值。"""
-    enabled = ask_yes_no("最外层融合为 MP4 视频", default=config.video_fusion)
-    if not enabled:
-        return replace(config, video_fusion=False)
-    raw = input(f"默认 MP4 视频（回车保留 {config.video_path or '空'}）：").strip()
-    video = str(normalize_user_path(raw)) if raw else config.video_path
-    overrides = dict(config.source_video_paths)
+def _edit_disguise(disguise: DisguiseConfig, config: AppConfig) -> DisguiseConfig:
+    """编辑本层的扩展名或视频；分别打包时可逐来源覆盖载体。"""
+    modes = ("none", "extension", "video")
+    choice = ask_menu(
+        "本层伪装", {1: "原扩展名", 2: "修改扩展名", 3: "视频伪装（MP4）"},
+        default=modes.index(disguise.mode) + 1,
+    )
+    disguise = replace(disguise, mode=modes[choice - 1])
+    if disguise.mode == "extension":
+        while True:
+            raw = input(f"伪装扩展名（回车保留 {disguise.extension}）：").strip()
+            try:
+                validate_disguise_extension(raw or disguise.extension)
+                return replace(disguise, extension=raw or disguise.extension)
+            except ValueError as error:
+                print(error)
+    if disguise.mode != "video":
+        return disguise
+    print("视频伪装使用本层完整单文件归档；分卷和自解压可设置在其他层。")
+    raw = input(f"本层默认 MP4 视频（回车保留 {disguise.video_path or '空'}）：").strip()
+    video = str(normalize_user_path(raw)) if raw else disguise.video_path
+    overrides = dict(disguise.source_video_paths)
     if config.compress_mode == "separate" and ask_yes_no("是否按来源分别指定视频"):
         for source in config.effective_source_paths():
             current = overrides.get(source, "使用默认视频")
@@ -381,7 +387,7 @@ def _edit_video(config: AppConfig) -> AppConfig:
                 overrides.pop(source, None)
             elif raw:
                 overrides[source] = str(normalize_user_path(raw))
-    return replace(config, video_fusion=True, video_path=video, source_video_paths=overrides)
+    return replace(disguise, video_path=video, source_video_paths=overrides)
 
 
 def initialize_config(

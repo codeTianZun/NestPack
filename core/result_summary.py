@@ -102,6 +102,7 @@ def build_manifest(
                 {
                     "name": layer.files[0].name,
                     "format": settings.format,
+                    "disguise_mode": settings.disguise.mode,
                     "files": [str(path) for path in layer.files],
                     "password": settings.password if include_passwords else "",
                     "recovery_percent": settings.recovery_percent,
@@ -145,6 +146,7 @@ def build_plan_manifest(plan: CompressionPlan) -> dict[str, Any]:
                 {
                     "name": files[0].name,
                     "format": settings.format,
+                    "disguise_mode": settings.disguise.mode,
                     "expected_files": [str(path) for path in files],
                     "password_set": bool(settings.password) or settings.password_set,
                     "recovery_percent": settings.recovery_percent,
@@ -176,8 +178,8 @@ def build_plan_manifest(plan: CompressionPlan) -> dict[str, Any]:
         "sevenzip": str(plan.sevenzip) if plan.sevenzip else None,
         "overwrite_existing": config.overwrite_existing,
         "delete_inner_after_verify": config.delete_inner_after_verify,
-        "disguise_outer_extension": config.disguise_outer_extension,
-        "video_fusion": config.video_fusion,
+        "disguise_outer_extension": config.layers[-1].disguise.mode == "extension",
+        "video_fusion": config.layers[-1].disguise.mode == "video",
         "randomize_layer_names": config.randomize_layer_names,
         "warnings": list(plan.warnings),
         "groups": manifest_groups,

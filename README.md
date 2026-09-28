@@ -15,20 +15,20 @@
 [![License](https://img.shields.io/badge/license-GPL--3.0--only-2F9E44)](LICENSE)
 
 NestPack 可以把文件或文件夹依次包进 RAR、7z、ZIP 压缩层中，格式可以混用。
-每层都能单独设置密码、压缩级别和分卷大小；收到最外层压缩包后，也能逐层解包。
+每层都能单独设置密码、压缩级别、分卷大小和伪装方式；收到最外层压缩包后，也能逐层解包。
 Windows 图形界面、Windows 命令行和 Linux 命令行共用同一种 JSON 任务配置。
 
 ## ✨ 主要功能
 
 | | 你可以做什么 |
 |---|---|
-| 🧱 多层打包 | 自由安排 RAR、7z、ZIP 的顺序，为每层设置文件名、密码、压缩级别和分卷大小。 |
+| 🧱 多层打包 | 自由安排 RAR、7z、ZIP 的顺序，为每层设置文件名、密码、压缩级别、分卷大小和伪装方式。 |
 | 📦 RAR 自解压 | 每个 RAR 层可交付为 Windows EXE 或 Linux 终端自解压文件；Linux 服务器可复用 Windows 品牌模板。 |
 | 🔓 逐层解包 | 选择最外层文件，自动识别每层格式；支持混合格式、分卷和调整过扩展名的归档。 |
 | 🎬 视频融合 | 将完整归档融合为可播放的 MP4；支持默认视频、逐来源专用视频、已有归档独立融合与原归档提取。 |
 | 🖥️ 多种入口 | Windows 使用图形界面或命令行，Linux 使用命令行；命令行还提供数字菜单。 |
 | 🧩 复用任务 | 将设置保存为 JSON，图形界面和命令行都能读取。 |
-| 🛠️ 更多选项 | RAR 层可添加恢复记录；还可选择源名称别名、随机填充、最外层扩展名调整和逐层自检。 |
+| 🛠️ 更多选项 | RAR 层可添加恢复记录；还可选择源名称别名、随机填充、逐层扩展名调整和逐层自检。 |
 
 例如，`资料/ → 内层.rar → 中层.7z → 外层.zip`。解包时从最外层开始，NestPack 按相反顺序释放原始内容。
 
@@ -81,7 +81,7 @@ python -m cli --install-tools
 
 ## 📖 压缩与解包
 
-图形界面中，选择来源和输出目录，按从内到外的顺序添加压缩层，然后开始压缩。完成后可查看产物与密码清单；切换到「解包」页即可选择最外层文件进行解包。
+图形界面中，选择来源，在左侧按从内到外的顺序添加压缩层，选中一层后在右侧编辑。在右侧「任务输出」设置输出目录，然后开始压缩。完成后可查看产物与密码清单；切换到「解包」页即可选择最外层文件进行解包。
 
 命令行除了数字菜单，也支持直接给出任务参数。下面创建一个 RAR 内层和 7z 外层，再解包外层文件：
 
@@ -92,10 +92,10 @@ python -m cli --unpack ./out/outer.7z
 
 Linux 源码运行将 `python` 换成 `python3`；Windows 发布程序将 `python -m cli` 换成 `nestpack-cli.exe`。分卷归档请从第一卷开始解包，并将同一套分卷放在同一目录。更多参数、密码文件及 JSON 配置用法见 [使用说明](使用说明.md)。
 
-视频伪装可在 GUI 右侧「输出伪装」中选择「视频伪装（MP4）」，也可使用参数：
+视频伪装可在 GUI 选中任意一层后，在右侧「层设置」选择「视频伪装（MP4）」；每层独立选择载体，下一层包裹伪装后的产物。也可使用参数：
 
 ```bash
-python -m cli --source ./data --output ./out --layer 7z --layer-password-file ./password.txt --video ./cover.mp4 --yes
+python -m cli --source ./data --output ./out --layer 7z --layer-password-file ./password.txt --layer-video ./cover.mp4 --yes
 python -m cli --fuse-archive ./existing.zip --video ./cover.mp4 --output ./out
 python -m cli --extract-video-archive ./out/existing.mp4 --output ./restored
 ```
@@ -113,7 +113,7 @@ RAR 自解压可在每层设置中启用。为 Windows 用户分享资源时，�
 
 - JSON 配置默认会保存明文密码。需要避免密码写入配置时，可在图形界面的「配置操作」中关闭「在配置中保存密码」，或在配置中设置 `persist_passwords=false`；请妥善保存完成时显示的密码清单。
 - ZIP 层不支持文件名加密，归档内文件名仍可见。需要隐藏文件名时，请使用支持文件名加密的 RAR 或 7z 层。
-- 最外层扩展名调整只改变文件名，不改变归档内容；NestPack 解包时按内容识别格式。
+- 逐层扩展名调整只改变文件名，不改变归档内容；NestPack 解包时按内容识别格式。
 - 请只处理有权使用的文件，并遵守存储服务条款、适用法律与组织的安全规范。
 
 ## 📚 更多文档

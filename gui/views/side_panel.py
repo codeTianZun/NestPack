@@ -15,7 +15,7 @@ from qfluentwidgets import (
 from gui.appearance.logo import LogoState, render_logo
 from gui.appearance.theme import apply_danger_style
 
-LOGO_SIZE = 112
+LOGO_SIZE = 80
 
 
 class SidePanel(QFrame):
@@ -76,10 +76,10 @@ class SidePanel(QFrame):
         self.result_button.setEnabled(False)
         self.result_button.clicked.connect(self.result_requested.emit)
         actions.addWidget(self.result_button)
-        layout.addLayout(actions)
         open_button = PushButton("打开输出目录")
         open_button.clicked.connect(self.open_output_requested.emit)
-        layout.addWidget(open_button)
+        actions.addWidget(open_button)
+        layout.addLayout(actions)
 
         self.log_dialog = QDialog(self)
         self.log_dialog.setWindowTitle("任务日志 · NestPack")

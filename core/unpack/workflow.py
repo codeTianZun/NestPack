@@ -10,13 +10,69 @@ from pathlib import Path
 from core.backends import detect_archive_format, get_backend
 from core.cancellation import Cancellation
 from core.models import FORMAT_7Z, FORMAT_ZIP
-from core.video import extract_video_archive, inspect_video_archive
+from core.video import VideoArchive, extract_video_archive, inspect_video_archive
 from platforms import get_archive_platform
 
 from .content import PADDING_NAME_PATTERN, classify_extracted
 from .extraction import extract_layer
 from .volumes import find_disguised_volume_set, stage_volume_set
 from .workspace import unpack_workspace
+
+
+def _inspect_archive(
+    archive: Path, cancellation: Cancellation,
+) -> tuple[str, VideoArchive | None]:
+    """识别层格式和视频记录，在创建工作目录前校验入口。"""
+    archive_format = detect_archive_format(archive)
+    video_record = inspect_video_archive(archive, cancellation) if archive_format is None else None
+    if video_record is not None:
+        archive_format = video_record.format
+    if archive_format is None:
+        raise RuntimeError(
+            "不是受支持的压缩包或 NestPack 视频融合文件（内容无 RAR/7z/ZIP 文件头，"
+            f"伪装扩展名已按内容识别）：{archive}"
+        )
+    backend = get_backend(archive_format)
+    volume_match = backend.volume_name_pattern.fullmatch(archive.name)
+    if volume_match and int(volume_match.group(2)) != 1:
+        first_volume = backend.standard_volume_name(volume_match.group(1), 1)
+        raise RuntimeError(f"分卷压缩包请从第一卷开始解包（如 {first_volume}）")
+
+    return archive_format, video_record
+
+
+def _prepare_archive(
+    archive: Path, video_record: VideoArchive | None,
+    work: Path, cancellation: Cancellation, output_cb: Callable[[str], None] | None,
+) -> Path:
+    """提取本层 MP4 原归档，并按标准名称接入伪装分卷。"""
+    if video_record is not None:
+        archive = extract_video_archive(
+            archive, work / f"video_payload.{video_record.format}",
+            cancellation=cancellation, output_cb=output_cb,
+        )
+    # 伪装分卷套：改回标准卷名后再解（见 find_disguised_volume_set）。
+    disguised_set = find_disguised_volume_set(archive)
+    if disguised_set is not None:
+        volumes, base, disguised_backend = disguised_set
+        parsed = disguised_backend.parse_disguised_volume(archive.name)
+        assert parsed is not None
+        if parsed[1] != 1:
+            first_volume = disguised_backend.disguised_volume_name(
+                base, 1, parsed[2]
+            )
+            raise RuntimeError(
+                f"分卷压缩包请从第一卷开始解包（如 {first_volume}）"
+            )
+        if output_cb is not None:
+            output_cb(
+                f"识别到伪装分卷（共 {len(volumes)} 卷），"
+                "已自动按标准卷名接入。"
+            )
+        return stage_volume_set(
+            volumes, base, disguised_backend, work / "volumes", cancellation
+        )
+    return archive
 
 
 def unpack_archive(
@@ -39,7 +95,7 @@ def unpack_archive(
     优先尝试的密码（顺序任意）；
     全部失败且提供了 password_prompt 时逐层交互询问。layer_limit
     强制指定层数，用于载荷本身恰好是单个压缩包文件时避免多解一层；
-    None 表示自动识别。最外层是伪装扩展名的分卷套（foo.part1.bin…
+    None 表示自动识别。各层是伪装扩展名的分卷套（foo.part1.bin…
     / foo.bin.001…）时自动以标准卷名接入工作目录再解，无需手动改名。
     失败或取消时保留输出目录下的临时工作目录，便于手动续解。
     """
@@ -67,57 +123,16 @@ def unpack_archive(
     cancellation = Cancellation(cancel_event)
     cancellation.check()
     archive = archive.resolve()
-    outer_format = detect_archive_format(archive)
-    video_record = inspect_video_archive(archive, cancellation) if outer_format is None else None
-    if video_record is not None:
-        outer_format = video_record.format
-    if outer_format is None:
-        raise RuntimeError(
-            "不是受支持的压缩包或 NestPack 视频融合文件（内容无 RAR/7z/ZIP 文件头，"
-            f"伪装扩展名已按内容识别）：{archive}"
-        )
-    outer_backend = get_backend(outer_format)
-    volume_match = outer_backend.volume_name_pattern.fullmatch(archive.name)
-    if volume_match and int(volume_match.group(2)) != 1:
-        first_volume = outer_backend.standard_volume_name(volume_match.group(1), 1)
-        raise RuntimeError(f"分卷压缩包请从第一卷开始解包（如 {first_volume}）")
-
+    current_format, video_record = _inspect_archive(archive, cancellation)
     with unpack_workspace(output_dir, cancellation, output_cb) as work:
-        if video_record is not None:
-            archive = extract_video_archive(
-                archive, work / f"video_payload.{video_record.format}",
-                cancellation=cancellation, output_cb=output_cb,
-            )
-        # 伪装分卷套：改回标准卷名后再解（见 find_disguised_volume_set）。
-        disguised_set = find_disguised_volume_set(archive)
-        if disguised_set is not None:
-            volumes, base, disguised_backend = disguised_set
-            parsed = disguised_backend.parse_disguised_volume(archive.name)
-            assert parsed is not None
-            if parsed[1] != 1:
-                first_volume = disguised_backend.disguised_volume_name(
-                    base, 1, parsed[2]
-                )
-                raise RuntimeError(
-                    f"分卷压缩包请从第一卷开始解包（如 {first_volume}）"
-                )
-            if output_cb is not None:
-                output_cb(
-                    f"识别到伪装分卷（共 {len(volumes)} 卷），"
-                    "已自动按标准卷名接入。"
-                )
-            current = stage_volume_set(
-                volumes, base, disguised_backend, work / "volumes", cancellation
-            )
-            current_format = disguised_backend.format_name
-        else:
-            current = archive
-            current_format = outer_format
-
+        current = archive
         layer_index = 1
         known_passwords: list[str] = []
         while True:
             cancellation.check()
+            current = _prepare_archive(
+                current, video_record, work / f"input_{layer_index}", cancellation, output_cb,
+            )
             backend = get_backend(current_format)
             layer_dir = work / f"layer_{layer_index}"
             layer_dir.mkdir()
@@ -138,10 +153,10 @@ def unpack_archive(
             if layer_limit is not None and layer_index >= layer_limit:
                 payload_dir = layer_dir
                 break
-            content = classify_extracted(layer_dir)
+            content = classify_extracted(layer_dir, cancellation)
             if content.is_intermediate:
                 current = content.volumes[0]
-                current_format = content.archive_format
+                current_format, video_record = _inspect_archive(current, cancellation)
                 layer_index += 1
                 continue
             payload_dir = layer_dir

@@ -18,7 +18,6 @@ from .validation import (
     parse_layer_config,
     require_boolean,
     require_string,
-    validate_disguise_extension,
 )
 
 
@@ -76,16 +75,19 @@ def _parse_compress_mode_field(raw_config: dict[str, Any]) -> str:
     return compress_mode
 
 
-def _parse_disguise_extension_field(raw_config: dict[str, Any], *, strict: bool) -> str:
-    disguise_extension = raw_config.get("disguise_extension", ".bin")
-    if not isinstance(disguise_extension, str):
-        raise ConfigError("配置.disguise_extension 必须是字符串")
-    if strict:
-        try:
-            validate_disguise_extension(disguise_extension.strip())
-        except ValueError as error:
-            raise ConfigError(f"配置.disguise_extension：{error}") from error
-    return disguise_extension.strip()
+def _migrate_outer_disguise(raw_config: dict[str, Any], raw_layers: list) -> list:
+    """把 v1 任务级伪装读入最外层；显式逐层设置优先。"""
+    outer = raw_layers[-1]
+    if not isinstance(outer, dict) or "disguise" in outer:
+        return raw_layers
+    video = optional_boolean(raw_config, "video_fusion", "配置", False)
+    extension = optional_boolean(raw_config, "disguise_outer_extension", "配置", False)
+    return [*raw_layers[:-1], {**outer, "disguise": {
+        "mode": "video" if video else "extension" if extension else "none",
+        "extension": raw_config.get("disguise_extension", ".bin"),
+        "video_path": raw_config.get("video_path", ""),
+        "source_video_paths": raw_config.get("source_video_paths", {}),
+    }}]
 
 
 def _build_app_config(
@@ -97,24 +99,11 @@ def _build_app_config(
     sevenzip_path: str,
     output_directory: str,
     compress_mode: str,
-    disguise_extension: str,
 ) -> AppConfig:
     """按已解析的必填字段组装 AppConfig，布尔开关在此统一补默认值。"""
-    video_path = raw_config.get("video_path", "")
-    source_videos = raw_config.get("source_video_paths", {})
-    if not isinstance(video_path, str):
-        raise ConfigError("配置.video_path 必须是字符串")
-    if not isinstance(source_videos, dict) or not all(
-        isinstance(source, str) and isinstance(video, str)
-        for source, video in source_videos.items()
-    ):
-        raise ConfigError("配置.source_video_paths 必须是来源路径到视频路径的对象")
     return AppConfig(
         winrar_path=winrar_path,
         sevenzip_path=sevenzip_path,
-        video_fusion=optional_boolean(raw_config, "video_fusion", "配置", False),
-        video_path=video_path.strip(),
-        source_video_paths={source: video.strip() for source, video in source_videos.items()},
         source_path=source_paths[0] if source_paths else "",
         source_paths=source_paths,
         compress_mode=compress_mode,
@@ -144,10 +133,6 @@ def _build_app_config(
         hide_source_name=optional_boolean(
             raw_config, "hide_source_name", "配置", False
         ),
-        disguise_outer_extension=optional_boolean(
-            raw_config, "disguise_outer_extension", "配置", False
-        ),
-        disguise_extension=disguise_extension,
         randomize_timestamps=optional_boolean(
             raw_config, "randomize_timestamps", "配置", False
         ),
@@ -181,6 +166,7 @@ def parse_config(
     if not isinstance(raw_layers, list) or not raw_layers:
         raise ConfigError("layers 必须是至少包含一项的数组")
 
+    raw_layers = _migrate_outer_disguise(raw_config, raw_layers)
     layers = [
         parse_layer_config(raw_layer, layer_index, strict=not allow_incomplete)
         for layer_index, raw_layer in enumerate(raw_layers)
@@ -198,5 +184,4 @@ def parse_config(
         sevenzip_path=sevenzip_path,
         output_directory=output_directory,
         compress_mode=_parse_compress_mode_field(raw_config),
-        disguise_extension=_parse_disguise_extension_field(raw_config, strict=not allow_incomplete),
     )

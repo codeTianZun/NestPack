@@ -49,13 +49,22 @@ QLabel#success { color: #42756A; }
 QLabel#statusLabel, QLabel#outputName { font-size: 14px; font-weight: 600; }
 QScrollArea, QScrollArea > QWidget > QWidget { border: none; background: transparent; }
 QFrame#card, QFrame#layerCard { background: transparent; border: none; }
-QFrame#layerBody { background: #FFFFFF; border: 1px solid #DAD2E6; border-radius: 8px; }
-QLabel#layerNumber {
-    background: #E8DDF1; color: #725196; font-weight: 600;
-    border: 1px solid #DAD2E6; border-bottom: none;
-    border-top-left-radius: 8px; border-top-right-radius: 12px; padding: 5px 14px;
+QPushButton#layerSelect {
+    text-align: left; padding: 10px 12px; border: 1px solid #DAD2E6;
+    border-left: 3px solid transparent; border-radius: 6px; background: #FFFFFF;
 }
-QLabel#layerNumber[outermost="true"] { border-top: 3px solid #9E742D; padding-top: 3px; }
+QPushButton#layerSelect:hover { background: #F0EAF7; }
+QPushButton#layerSelect:checked {
+    border-left-color: #725196; background: #E8DDF1; color: #563875;
+}
+QPushButton#layerSelect:focus { border-color: #725196; }
+QPushButton#detailTab {
+    padding: 8px 12px; border: none; border-bottom: 2px solid transparent;
+    border-radius: 0; background: transparent; color: #716A80;
+}
+QPushButton#detailTab:checked { border-bottom-color: #725196; color: #725196; font-weight: 600; }
+QPushButton#detailTab:hover, QPushButton#detailTab:focus { background: #E8DDF1; }
+QSplitter::handle:horizontal { width: 5px; background: #DAD2E6; }
 QToolButton#sectionToggle {
     border: none; background: transparent; color: #716A80; padding: 6px 0;
     text-align: left;

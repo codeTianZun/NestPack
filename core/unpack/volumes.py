@@ -16,8 +16,8 @@ def find_disguised_volume_set(
 ) -> tuple[list[Path], str, ArchiveBackend] | None:
     """识别被伪装扩展名改名的成套分卷，返回 (按卷号升序的卷, 基准名, 后端)。
 
-    条件：同目录、同基准名、同伪装扩展名，卷号从 1 连续，且每个
-    文件都带该格式的文件头。rar 伪装名形如 foo.part1.bin，
+    条件：同目录、同基准名、同伪装扩展名，卷号从 1 连续。
+    RAR 每卷带文件头；7z / ZIP 字节分卷由首卷识别。rar 伪装名形如 foo.part1.bin，
     7z / zip 伪装名形如 foo.bin.001（两者同形，靠文件头区分）。
     """
     for backend in iter_backends():
@@ -50,7 +50,13 @@ def find_disguised_volume_set(
         numbers = [number for number, _path in found]
         if numbers != list(range(1, len(found) + 1)):
             continue
-        if not all(backend.looks_like(path) for _number, path in found):
+        if not all(path.is_file() for _number, path in found):
+            continue
+        if not backend.looks_like(found[0][1]):
+            continue
+        if backend.format_name == FORMAT_RAR and not all(
+            backend.looks_like(path) for _number, path in found[1:]
+        ):
             continue
         return [path for _number, path in found], base, backend
     return None

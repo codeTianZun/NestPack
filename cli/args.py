@@ -46,7 +46,11 @@ class LayerOption(argparse.Action):
         layers = namespace.layer_specs
         if not layers:
             parser.error(f"{option_string} 前需要先指定 --layer rar、7z 或 zip")
-        layers[-1][self.dest.removeprefix("layer_")] = values
+        field = self.dest.removeprefix("layer_")
+        if field == "source_video_paths":
+            layers[-1].setdefault(field, []).append(values)
+        else:
+            layers[-1][field] = values
 
 
 class StartLayer(argparse.Action):
@@ -198,6 +202,9 @@ def create_parser() -> ArgumentParser:
         ("--layer-level", "compression_level", "本层压缩级别：auto 或 0–5"),
         ("--layer-volume-size", "volume_size", "本层分卷大小，如 100m"),
         ("--layer-recovery", "recovery_percent", "本层恢复记录百分比 1–100，仅 RAR"),
+        ("--layer-disguise", "disguise_mode", "本层伪装方式：none / extension / video"),
+        ("--layer-disguise-extension", "disguise_extension", "本层伪装扩展名，如 .bin，并启用"),
+        ("--layer-video", "video_path", "本层默认载体 MP4，并启用视频伪装"),
         ("--layer-name-template", "name_template", "分别打包的层名模板，如 {stem}_1"),
         ("--layer-sfx", "sfx_target", "启用本层自解压，交付目标 windows 或 linux"),
         ("--layer-sfx-template", "sfx_template_path", "品牌样包或官方 SFX 模板路径，默认 auto"),
@@ -218,6 +225,11 @@ def create_parser() -> ArgumentParser:
             metavar="值",
             help=description,
         )
+
+    compression.add_argument(
+        "--layer-source-video", dest="layer_source_video_paths", action=LayerOption, nargs=2,
+        metavar=("来源", "MP4"), help="本层按来源指定视频并启用视频伪装，可重复",
+    )
 
     unpack = parser.add_argument_group("解包参数")
     unpack.add_argument(

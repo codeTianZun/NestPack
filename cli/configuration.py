@@ -81,12 +81,15 @@ def absolute_config(config: AppConfig, config_path: Path | None) -> AppConfig:
         else "",
         winrar_path=tool_path(config.winrar_path),
         sevenzip_path=tool_path(config.sevenzip_path),
-        video_path=str(normalize_user_path(config.video_path, base)) if config.video_path else "",
-        source_video_paths={
-            str(normalize_user_path(source, base)): str(normalize_user_path(video, base))
-            for source, video in config.source_video_paths.items() if video
-        },
-        layers=[replace(layer, sfx=replace(
+        layers=[replace(layer, disguise=replace(
+            layer.disguise,
+            video_path=str(normalize_user_path(layer.disguise.video_path, base))
+            if layer.disguise.video_path else "",
+            source_video_paths={
+                str(normalize_user_path(source, base)): str(normalize_user_path(video, base))
+                for source, video in layer.disguise.source_video_paths.items() if video
+            },
+        ), sfx=replace(
             layer.sfx,
             template_path=tool_path(layer.sfx.template_path),
             icon_path=str(normalize_user_path(layer.sfx.icon_path, base))
@@ -100,8 +103,10 @@ def absolute_config(config: AppConfig, config_path: Path | None) -> AppConfig:
 def write_task_config(path: Path, config: AppConfig, config_path: Path | None) -> None:
     """保存当前任务的路径快照，并应用密码持久化设置。"""
     snapshot = absolute_config(config, config_path)
-    protected = [*snapshot.effective_source_paths(), snapshot.video_path,
-                 *snapshot.source_video_paths.values()]
+    protected = list(snapshot.effective_source_paths())
+    protected.extend(value for layer in snapshot.layers for value in (
+        layer.disguise.video_path, *layer.disguise.source_video_paths.values(),
+    ) if value)
     protected.extend(value for layer in snapshot.layers for value in (
         layer.sfx.template_path, layer.sfx.icon_path, layer.sfx.logo_path,
     ) if value and value.casefold() != "auto")
@@ -150,6 +155,25 @@ def _layer_from_options(spec: dict, index: int, stem: str) -> dict:
         for key in ("template_path", "icon_path", "logo_path"):
             if sfx[key] and sfx[key].casefold() != "auto":
                 sfx[key] = str(normalize_user_path(sfx[key]))
+    disguise = raw["disguise"]
+    mode = values.pop("disguise_mode", None)
+    if "disguise_extension" in values:
+        disguise["extension"] = values.pop("disguise_extension")
+        disguise["mode"] = "extension"
+    if "video_path" in values:
+        video = values.pop("video_path")
+        if not video.strip():
+            raise ConfigError(f"第 {index} 层 --layer-video 路径不能为空")
+        disguise["video_path"] = str(normalize_user_path(video))
+        disguise["mode"] = "video"
+    if "source_video_paths" in values:
+        disguise["source_video_paths"] = {
+            str(normalize_user_path(source)): str(normalize_user_path(video))
+            for source, video in values.pop("source_video_paths")
+        }
+        disguise["mode"] = "video"
+    if mode is not None:
+        disguise["mode"] = mode
     raw.update(values)
     raw["password_set"] = bool(raw["password"])
     return raw
@@ -183,33 +207,45 @@ def configuration_from_arguments(arguments: argparse.Namespace) -> tuple[AppConf
         "compress_mode",
         "winrar_path",
         "sevenzip_path",
-        "disguise_extension",
-        *BOOLEAN_OPTIONS,
+        *(key for key in BOOLEAN_OPTIONS
+          if key not in ("video_fusion", "disguise_outer_extension")),
     ):
         value = getattr(arguments, field)
         if value is not None:
             if field in ("winrar_path", "sevenzip_path") and value.strip().lower() != "auto":
                 value = str(normalize_user_path(value))
             raw[field] = value
-    if arguments.disguise_extension is not None and arguments.disguise_outer_extension is None:
-        raw["disguise_outer_extension"] = True
-    if arguments.video_path is not None:
-        if not arguments.video_path.strip():
-            raise ConfigError("--video 路径不能为空")
-        raw["video_path"] = str(normalize_user_path(arguments.video_path))
-    if arguments.source_video_paths is not None:
-        raw["source_video_paths"] = {
-            **raw["source_video_paths"],
-            **{str(normalize_user_path(source)): str(normalize_user_path(video))
-               for source, video in arguments.source_video_paths},
-        }
-    if (arguments.video_path is not None or arguments.source_video_paths is not None
-            ) and arguments.video_fusion is None:
-        raw["video_fusion"] = True
     if arguments.layer_specs is not None:
         stem = Path(raw["source_path"]).stem or "archive"
         raw["layers"] = [
             _layer_from_options(spec, index, stem)
             for index, spec in enumerate(arguments.layer_specs, start=1)
         ]
+    _apply_outer_disguise_arguments(raw["layers"][-1]["disguise"], arguments)
     return parse_config(raw), config_path
+
+
+def _apply_outer_disguise_arguments(disguise: dict, arguments: argparse.Namespace) -> None:
+    """任务级 CLI 伪装参数作为最外层设置的快捷入口。"""
+    extension = disguise["mode"] == "extension"
+    video = disguise["mode"] == "video"
+    if arguments.disguise_extension is not None:
+        disguise["extension"] = arguments.disguise_extension
+        extension = True
+    if arguments.disguise_outer_extension is not None:
+        extension = arguments.disguise_outer_extension
+    if arguments.video_path is not None:
+        if not arguments.video_path.strip():
+            raise ConfigError("--video 路径不能为空")
+        disguise["video_path"] = str(normalize_user_path(arguments.video_path))
+        video = True
+    if arguments.source_video_paths is not None:
+        disguise["source_video_paths"] = {
+            **disguise["source_video_paths"],
+            **{str(normalize_user_path(source)): str(normalize_user_path(path))
+               for source, path in arguments.source_video_paths},
+        }
+        video = True
+    if arguments.video_fusion is not None:
+        video = arguments.video_fusion
+    disguise["mode"] = "video" if video else "extension" if extension else "none"

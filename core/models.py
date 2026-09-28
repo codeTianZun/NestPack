@@ -67,6 +67,25 @@ class SfxConfig:
 
 
 @dataclass(frozen=True)
+class DisguiseConfig:
+    """一层归档的伪装方式、扩展名及载体视频。"""
+
+    mode: str = "none"
+    extension: str = ".bin"
+    video_path: str = ""
+    source_video_paths: dict[str, str] = field(default_factory=dict)
+
+    def to_json_dict(self) -> dict[str, Any]:
+        """序列化本层设置，保留暂未启用的扩展名和视频选择。"""
+        return {
+            "mode": self.mode,
+            "extension": self.extension,
+            "video_path": self.video_path,
+            "source_video_paths": dict(self.source_video_paths),
+        }
+
+
+@dataclass(frozen=True)
 class LayerConfig:
     """单层压缩参数；None 表示不创建恢复记录。"""
 
@@ -85,6 +104,7 @@ class LayerConfig:
     # 压缩格式："rar" / "7z" / "zip"；缺省 rar。
     format: str = FORMAT_RAR
     sfx: SfxConfig = field(default_factory=SfxConfig)
+    disguise: DisguiseConfig = field(default_factory=DisguiseConfig)
 
     def to_json_dict(self) -> dict[str, Any]:
         """转换成适合 GUI 编辑和 JSON 保存的显式结构。"""
@@ -101,6 +121,7 @@ class LayerConfig:
             "volume_size": self.volume_size,
             "password_set": self.password_set or bool(self.password),
             "sfx": self.sfx.to_json_dict(),
+            "disguise": self.disguise.to_json_dict(),
         }
 
 
@@ -118,7 +139,6 @@ class AppConfig:
     add_padding: bool = False
     randomize_layer_names: bool = False
     hide_source_name: bool = False
-    disguise_outer_extension: bool = False
     verify_after_compress: bool = True
     cleanup_on_failure: bool = False
     persist_passwords: bool = True
@@ -127,16 +147,11 @@ class AppConfig:
     # compress_mode 决定多个来源是一起打包还是一个来源一套压缩包。
     source_paths: list[str] = field(default_factory=list)
     compress_mode: str = COMPRESS_MODE_COMBINED
-    # 伪装用的扩展名（以点开头，如 ".bin"）；disguise_outer_extension 开启时生效。
-    disguise_extension: str = ".bin"
     # 完成后把最外层文件的修改时间改为随机值，避免时间戳成为关联特征。
     randomize_timestamps: bool = False
     # 7-Zip 命令行工具路径，语义同 winrar_path（auto 表示自动检测）；
     # 只在配置里存在 7z 或 zip 层时解析。
     sevenzip_path: str = "auto"
-    video_fusion: bool = False
-    video_path: str = ""
-    source_video_paths: dict[str, str] = field(default_factory=dict)
 
     def effective_source_paths(self) -> list[str]:
         """返回实际生效的来源列表，兼容只填了 source_path 的旧配置。"""
@@ -148,9 +163,6 @@ class AppConfig:
             "config_version": CONFIG_VERSION,
             "winrar_path": self.winrar_path,
             "sevenzip_path": self.sevenzip_path,
-            "video_fusion": self.video_fusion,
-            "video_path": self.video_path,
-            "source_video_paths": dict(self.source_video_paths),
             "source_path": self.source_path,
             "source_paths": list(self.source_paths),
             "compress_mode": self.compress_mode,
@@ -162,8 +174,6 @@ class AppConfig:
             "add_padding": self.add_padding,
             "randomize_layer_names": self.randomize_layer_names,
             "hide_source_name": self.hide_source_name,
-            "disguise_outer_extension": self.disguise_outer_extension,
-            "disguise_extension": self.disguise_extension,
             "randomize_timestamps": self.randomize_timestamps,
             "verify_after_compress": self.verify_after_compress,
             "cleanup_on_failure": self.cleanup_on_failure,

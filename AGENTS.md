@@ -70,9 +70,10 @@ GUI/CLI + Linux CLI，共用 `core/` 引擎，版本 1.0.0）。智能体会话�
 | GUI 路径选择起点 / 另存时固定路径 | `gui/config/paths.py` |
 | GUI 后台任务 / 线程状态与回收 | `gui/tasks/`、`gui/tasks/threading.py` |
 | GUI 工具路径 / 浏览与检测提示 / 安装动作 | `gui/views/runtime_panel.py` |
-| GUI 压缩输出 / 伪装 / 载体视频 | `gui/views/output_panel.py`、`gui/views/video_dialog.py` |
+| GUI 压缩输出 / 已有归档伪装 | `gui/views/output_panel.py`、`gui/views/video_dialog.py` |
 | GUI 解包表单 / 候选密码 / 原归档提取入口 | `gui/views/unpack_panel.py` |
 | GUI 配置操作 / 任务选项 | `gui/views/config_bar.py`、`gui/views/task_options.py` |
+| GUI 层选择 / 右侧层编辑 / 逐层伪装 | `gui/views/layers_panel.py`、`layer_card.py`、`layer_editor.py`、`disguise_panel.py` |
 | GUI 面板 / 对话框 / 字段读写 | `gui/views/` |
 | 自解压设置界面与数字菜单 | `gui/views/sfx_dialog.py`、`cli/sfx.py` |
 | GUI 主题 / 文件选择器外观与中文文案 / 项目 Logo | `gui/appearance/` |

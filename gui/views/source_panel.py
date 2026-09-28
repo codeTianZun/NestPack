@@ -83,6 +83,7 @@ class SourcePanel(SectionCard):
         self._build_list()
         self._build_buttons()
         self._build_mode_row()
+        self.paths_changed.connect(self._fit_list_height)
 
     def _build_list(self) -> None:
         """来源列表：支持多选与拖放；路径数据与显示分离，行尾提供删除按钮。"""
@@ -90,13 +91,20 @@ class SourcePanel(SectionCard):
         self.source_list.setSelectionMode(
             QAbstractItemView.SelectionMode.ExtendedSelection
         )
-        self.source_list.setMinimumHeight(88)
-        self.source_list.setMaximumHeight(144)
+        self.source_list.setFixedHeight(64)
         self.source_list.setToolTip(
             "可添加多个文件或文件夹；支持从资源管理器拖入。"
         )
         self.body_layout.addWidget(self.source_list)
         self.source_list.paths_dropped.connect(self.append_selection)
+
+    def _fit_list_height(self) -> None:
+        """按来源数量分配空间，较多来源在列表内滚动。"""
+        height = sum(
+            self.source_list.item(index).sizeHint().height() + 2 * self.source_list.spacing()
+            for index in range(min(3, self.source_list.count()))
+        )
+        self.source_list.setFixedHeight(max(64, min(144, height + 12)))
 
     def _build_buttons(self) -> None:
         """添加与清空按钮由本面板处理，完成后发布来源变化。"""

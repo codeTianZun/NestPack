@@ -24,16 +24,16 @@ python -m cli --unpack 最外层文件 [--password 密码 ...] [--password-file 
    完整 schema 与 error_kind 枚举见 `cli.md` 的「结果 schema」段。
 - 解包专用参数（--password/--password-file/--layers）在压缩模式下会报
   用法错误（退出码 2），不会被静默忽略。
-- GUI 入口：主界面「解包…」按钮（仅 Windows，见 `windows.md`）。
+- GUI 入口：主界面「解包」页（仅 Windows，见 `windows.md`）。
 
 ## 解包行为
 
 - 按文件头识别格式（RAR / 7z / ZIP；.bin 等伪装扩展名无需改回），
-  NestPack 融合 MP4 会先提取并校验原归档，再按原层数逐层解包；
+  每层遇到 NestPack 融合 MP4 会先提取并校验原归档，再按原层数逐层解包；
   每层自动选用对应工具（zip 层与 7z 层共用 7-Zip 命令行）；
   分卷从第 1 卷开始。
 - 伪装扩展名的分卷套（`set.part1.bin`… / `set.bin.001`…，
-  "最外层伪装 + 分卷"组合的产物）自动识别：在工作目录以硬链接接出
+  各层“修改扩展名 + 分卷”组合的产物）自动识别：在工作目录以硬链接接出
   标准 `.partN.rar` / `.7z.001` / `.zip.001` 卷名再解，原文件不动，
   无需手动改名。
 - 逐层解出「单个压缩包或从 1 起连续编号的分卷套」→ 继续解下一层，
