@@ -6,14 +6,14 @@ CLI 入口参数与 JSON 输出契约跨平台一致，见 [cli.md](cli.md)；
 ## CLI
 
 源码在项目根目录使用 `python -m cli`，只需 Python 3.10+ 标准库；
-发布程序使用 `nestpack-cli.exe`，无需 Python。PowerShell 调用示例：
+发布程序使用 `NestPack-v1.1.0-windows-cli.exe`，无需 Python。PowerShell 调用示例：
 
 ```powershell
-.\nestpack-cli.exe --source "D:\data" --output "D:\out" --layer rar --yes --non-interactive --json
+.\NestPack-v1.1.0-windows-cli.exe --source "D:\data" --output "D:\out" --layer rar --yes --non-interactive --json
 ```
 
 可执行文件路径含空格时用 PowerShell 调用运算符，例如
-`& 'D:\NestPack Tools\nestpack-cli.exe' --help`。为任务路径加引号；
+`& 'D:\NestPack Tools\NestPack-v1.1.0-windows-cli.exe' --help`。为任务路径加引号；
 密码可用 `--layer-password-file` 或解包的 `--password-file` 传入。
 
 ## 平台差异（win32）
@@ -28,8 +28,8 @@ CLI 入口参数与 JSON 输出契约跨平台一致，见 [cli.md](cli.md)；
 ## 归档工具安装与路径
 
 ```powershell
-.\nestpack-cli.exe --install-tools 7z --non-interactive --json
-.\nestpack-cli.exe --install-tools rar --non-interactive --json
+.\NestPack-v1.1.0-windows-cli.exe --install-tools 7z --non-interactive --json
+.\NestPack-v1.1.0-windows-cli.exe --install-tools rar --non-interactive --json
 ```
 
 7-Zip 从官方来源下载并校验 SHA256，程序与许可材料安装到 exe 同目录的

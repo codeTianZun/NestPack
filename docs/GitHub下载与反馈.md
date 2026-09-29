@@ -2,7 +2,7 @@
 
 [返回首页](../README.md) · [图文入门](入门教程.md) · [常见问题](常见问题.md)
 
-> **当前下载状态**：公开发布页目前只有早期 v1.0.0。图文教程对应当前项目的新版界面，新版程序尚未公开发布；早期版本的界面、功能和配置结构与当前源码有差异。
+> 本页按 NestPack 1.1.0 的发布文件与界面编写。下载其他版本时请以相应版本的发布说明为准。
 
 ## 下载哪个文件
 
@@ -13,28 +13,21 @@
 
 | 使用方式 | 下载文件 | 下载后怎么打开 |
 |---|---|---|
-| Windows x64，使用窗口操作 | `NestPack.exe` | 放进一个能正常保存文件的文件夹，双击运行 |
-| Windows x64，使用命令行或数字菜单 | `nestpack-cli.exe` | 双击进入数字菜单，或在终端中运行 |
-| Linux x86_64，使用命令行 | `nestpack-linux-cli` | 在终端赋予执行权限后运行，见下方命令 |
+| Windows x64，使用窗口操作 | `NestPack-v1.1.0-windows-gui.exe` | 放进一个能正常保存文件的文件夹，双击运行 |
+| Windows x64，使用命令行或数字菜单 | `NestPack-v1.1.0-windows-cli.exe` | 双击进入数字菜单，或在终端中运行 |
+| Linux x86_64，使用命令行 | `NestPack-v1.1.0-linux-cli` | 在终端赋予执行权限后运行，见下方命令 |
 
-三个程序按需下载，均自带 Python 运行时。使用 Windows 图形界面时，下载 `NestPack.exe` 即可。
+三个程序按需下载，均自带 Python 运行时。使用 Windows 图形界面时，下载 `NestPack-v1.1.0-windows-gui.exe` 即可。
 
-![GitHub 发布页的 Assets 下载文件列表](images/github-download.png)
-
-*图中展示公开 v1.0.0 的下载文件列表；具体功能和界面以所选版本的说明为准。*
-
-列表中的其他文件用途如下：
-
-- **Source code (zip) / Source code (tar.gz)**：项目源码，适合自行运行或构建程序。下载后会看到代码文件和文件夹。
-- **SHA256SUMS**：用于核对下载文件是否完整的校验值列表。
+发布页还会提供 **Source code (zip) / Source code (tar.gz)** 源码包，适合自行运行或构建程序。下载后会看到代码文件和文件夹。
 
 项目首页绿色 **Code → Download ZIP** 下载的也是源码。需要直接使用程序时，请选上表中的可执行文件。GitHub 对两类下载的区别也有[官方说明](https://docs.github.com/en/repositories/working-with-files/using-files/downloading-files-from-github)。
 
 Linux 用户在文件所在目录运行：
 
 ```bash
-chmod +x nestpack-linux-cli
-./nestpack-linux-cli
+chmod +x NestPack-v1.1.0-linux-cli
+./NestPack-v1.1.0-linux-cli
 ```
 
 ## 第一次打开前
@@ -50,12 +43,13 @@ chmod +x nestpack-linux-cli
 1. 打开[发布页](https://github.com/codeTianZun/NestPack/releases)，查看新版本说明。若该版本要求迁移配置，先按版本说明处理。
 2. 等待任务完成，退出旧程序。
 3. 备份使用中的配置文件。默认文件名为 `nestpack_config.json`；另存过配置时，也备份自己保存的文件。
-4. 下载对应系统的新程序，用它替换原文件夹里的同名程序。
-5. 保留原目录里的配置文件、`nestpack_gui_state.json` 和 `dependencies` 文件夹，再启动新程序。
+4. 下载对应系统的新程序，放进原文件夹。发布文件名包含版本号，可以与旧程序共存。
+5. 保留原目录里的配置文件、`nestpack_gui_state.json` 和 `dependencies` 文件夹，启动新程序。
+6. 确认新程序可用后，删除旧版本的程序文件。
 
 配置文件保存来源、输出目录、压缩层等设置，并可能包含明文密码，请把备份放在自己保管的位置。
 
-程序文件名通常不含版本号。记录下载页面上的版本和日期，反馈问题时一并提供；自行构建的程序还应注明源码来源。
+发布程序的文件名包含产品名、版本、平台与入口。反馈问题时请提供文件名和下载日期；自行构建的程序还应注明源码来源。
 
 ## 遇到问题怎么反馈
 

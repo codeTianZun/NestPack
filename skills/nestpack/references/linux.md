@@ -2,8 +2,8 @@
 
 ## CLI 入口
 
-- 发布程序：`./nestpack-linux-cli --config 路径`，首次下载后执行
-  `chmod +x nestpack-linux-cli`，无需安装 Python。
+- 发布程序：`./NestPack-v1.1.0-linux-cli --config 路径`，首次下载后执行
+  `chmod +x NestPack-v1.1.0-linux-cli`，无需安装 Python。
 - 源码入口：`./platforms/linux/launcher.sh --config 路径` 或
   `python3 -m cli ...`。launcher 将项目根加入 Python 模块路径，保持调用
   目录与参数路径基准。源码运行只需 Python 3.10+ 标准库。
@@ -30,7 +30,7 @@ python3 -m cli --install-tools 7z --non-interactive --json
 
 仅在需要相应归档工具时安装。7-Zip 下载校验 SHA256 并保留许可材料；
 RAR 安装入口提供官网指引，结果中的 `manual_install: ["rar"]` 表示仍需
-用户安装，重新调用不会自动装好。发布程序将命令前缀换成 `./nestpack-linux-cli`。
+用户安装，重新调用不会自动装好。发布程序将命令前缀换成 `./NestPack-v1.1.0-linux-cli`。
 
 从 Windows 迁移任务时，更新来源、输出、工具、视频及自解压素材的本机路径；
 SFX 的接收者解压路径和命令保持目标系统语义，见 [sfx.md](sfx.md)。

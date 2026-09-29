@@ -1,10 +1,10 @@
-name: Release 1.0.0
+name: Release 1.1.0
 
 on:
   pull_request:
     branches: [main]
   push:
-    tags: [v1.0.0]
+    branches: [main]
 
 permissions:
   contents: read
@@ -23,13 +23,13 @@ jobs:
         run: python scripts/build.py --no-kill
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-gui
-          path: dist/NestPack.exe
+          name: NestPack-v1.1.0-windows-gui
+          path: dist/NestPack-v1.1.0-windows-gui.exe
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-cli
-          path: dist/nestpack-cli.exe
+          name: NestPack-v1.1.0-windows-cli
+          path: dist/NestPack-v1.1.0-windows-cli.exe
           if-no-files-found: error
 
   linux:
@@ -45,12 +45,12 @@ jobs:
         run: python scripts/build.py
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-cli
-          path: dist/nestpack-linux-cli
+          name: NestPack-v1.1.0-linux-cli
+          path: dist/NestPack-v1.1.0-linux-cli
           if-no-files-found: error
 
   publish:
-    if: github.ref == 'refs/tags/v1.0.0'
+    if: "github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release: NestPack 1.1.0')"
     needs: [windows, linux]
     runs-on: ubuntu-22.04
     permissions:
@@ -62,12 +62,8 @@ jobs:
           pattern: '*'
           path: release-assets
           merge-multiple: true
-      - name: Create checksums
-        run: |
-          cd release-assets
-          sha256sum NestPack.exe nestpack-cli.exe nestpack-linux-cli > SHA256SUMS
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create v1.0.0 release-assets/NestPack.exe release-assets/nestpack-cli.exe release-assets/nestpack-linux-cli release-assets/SHA256SUMS --verify-tag --title 'NestPack 1.0.0' --notes-file .github/release-notes/v1.0.0.md
+          gh release create v1.1.0 release-assets/NestPack-v1.1.0-windows-gui.exe release-assets/NestPack-v1.1.0-windows-cli.exe release-assets/NestPack-v1.1.0-linux-cli --target "$GITHUB_SHA" --title 'NestPack 1.1.0' --notes-file .github/release-notes/v1.1.0.md

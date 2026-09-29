@@ -9,7 +9,7 @@
 # AGENTS.md
 
 NestPack：多层嵌套压缩工具（RAR / 7z / ZIP 逐层可选、可混合嵌套；Windows
-GUI/CLI + Linux CLI，共用 `core/` 引擎，版本 1.0.0）。智能体会话从本文件开始导航。
+GUI/CLI + Linux CLI，共用 `core/` 引擎，版本 1.1.0）。智能体会话从本文件开始导航。
 
 ## 必读
 

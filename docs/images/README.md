@@ -1,10 +1,9 @@
 # 文档截图
 
-截图采集于 2026-09-29。应用图片来自 Windows 上运行的当前源码（`f7e4afd`），使用专用演示文件和公开示例密码。它们对应新版界面；公开 v1.0.0 的程序使用早期界面。
+截图采集于 2026-09-29。应用图片来自 Windows 上运行的当前源码（`f7e4afd`），使用专用演示文件和公开示例密码。它们对应 1.1.0 的主要界面。
 
 | 文件 | 展示内容 |
 |---|---|
-| `github-download.png` | GitHub 公开 v1.0.0 发布页的真实 Assets 列表 |
 | `quickstart-tools.png` | 工具检测与安装入口 |
 | `quickstart-source.png` | 添加资料文件夹，默认三层 RAR |
 | `quickstart-layers.png` | 带密码的 7z 内层与 ZIP 外层 |

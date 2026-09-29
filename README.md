@@ -14,7 +14,7 @@ NestPack 可以把文件或文件夹连续压缩多次，每一层分别选择 R
 
 **[下载程序](https://github.com/codeTianZun/NestPack/releases) · [图文入门](docs/入门教程.md) · [常见问题](docs/常见问题.md) · [GitHub 下载与反馈指南](docs/GitHub下载与反馈.md)**
 
-> **版本说明**：本页及图文教程展示当前项目的新版界面，对应的新版程序尚未公开发布。目前公开下载的是早期 **v1.0.0**，界面和功能与本文有差异。下载前请阅读发布说明；当前源码的运行与构建方法见[打包说明](打包说明.md)。
+> **版本说明**：本页介绍 **v1.1.0** 的界面与功能。下载程序前请核对发布说明；当前源码的运行与构建方法见[打包说明](打包说明.md)。
 
 ## 界面与用途
 
@@ -43,11 +43,11 @@ NestPack 可以把文件或文件夹连续压缩多次，每一层分别选择 R
 
 | 使用方式 | 文件 | 启动方式 |
 |---|---|---|
-| Windows x64 图形界面 | `NestPack.exe` | 双击运行 |
-| Windows x64 命令行 | `nestpack-cli.exe` | 双击进入数字菜单，或在终端运行 |
-| Linux x86_64 命令行 | `nestpack-linux-cli` | 赋予执行权限后运行 |
+| Windows x64 图形界面 | `NestPack-v1.1.0-windows-gui.exe` | 双击运行 |
+| Windows x64 命令行 | `NestPack-v1.1.0-windows-cli.exe` | 双击进入数字菜单，或在终端运行 |
+| Linux x86_64 命令行 | `NestPack-v1.1.0-linux-cli` | 赋予执行权限后运行 |
 
-三个程序均自带 Python 运行时，按需下载即可。Windows 图形界面用户选择 `NestPack.exe`；**Source code** 是源码包。下载位置和更新步骤见[GitHub 下载与反馈指南](docs/GitHub下载与反馈.md)。
+三个程序均自带 Python 运行时，按需下载即可。Windows 图形界面用户选择 `NestPack-v1.1.0-windows-gui.exe`；**Source code** 是源码包。下载位置和更新步骤见[GitHub 下载与反馈指南](docs/GitHub下载与反馈.md)。
 
 NestPack 还需要调用压缩工具：**7z 和 ZIP 使用 7-Zip，RAR 使用 WinRAR / RARLAB rar**。当前界面的「设置」提供检测与安装入口；[入门教程](docs/入门教程.md#准备压缩工具)以只需 7-Zip 的两层任务为例。
 
@@ -75,11 +75,11 @@ NestPack 还需要调用压缩工具：**7z 和 ZIP 使用 7-Zip，RAR 使用 Wi
 
 ## 命令行入口
 
-Windows 双击 `nestpack-cli.exe` 可进入数字菜单。Linux 在下载文件所在目录运行：
+Windows 双击 `NestPack-v1.1.0-windows-cli.exe` 可进入数字菜单。Linux 在下载文件所在目录运行：
 
 ```bash
-chmod +x nestpack-linux-cli
-./nestpack-linux-cli
+chmod +x NestPack-v1.1.0-linux-cli
+./NestPack-v1.1.0-linux-cli
 ```
 
 菜单提供新建任务、解包、修改配置和检测工具等操作。需要直接传入参数时，可查阅[命令行用法](使用说明.md#cli-直接参数与-ai-调用)。

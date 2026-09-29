@@ -27,6 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from core.legal import LEGAL_DOCUMENTS  # noqa: E402
+from core.models import APP_VERSION  # noqa: E402
 
 # PyInstaller 分析缓存放项目内的 build 目录（已被 gitignore）。
 CACHE_DIR = ROOT / "build" / "pyinstaller-cache"
@@ -35,9 +36,13 @@ ICON_PATH = ROOT / "build" / "app.ico"
 
 # (产物文件名, PyInstaller --name, 入口脚本, 窗口模式开关)。
 # --windowed 目标构建时会生成裁剪过的 spec 以瘦身，--console 目标不做裁剪。
+RELEASE_NAME = f"NestPack-v{APP_VERSION}"
+WINDOWS_GUI_NAME = f"{RELEASE_NAME}-windows-gui"
+WINDOWS_CLI_NAME = f"{RELEASE_NAME}-windows-cli"
+LINUX_CLI_NAME = f"{RELEASE_NAME}-linux-cli"
 TARGETS = (
-    ("NestPack.exe", "NestPack", "gui/__main__.py", "--windowed"),
-    ("nestpack-cli.exe", "nestpack-cli", "cli/__main__.py", "--console"),
+    (f"{WINDOWS_GUI_NAME}.exe", WINDOWS_GUI_NAME, "gui/__main__.py", "--windowed"),
+    (f"{WINDOWS_CLI_NAME}.exe", WINDOWS_CLI_NAME, "cli/__main__.py", "--console"),
 )
 
 # 每个目标生成的 spec 模板。用 @占位符@ 替换，避免与 Python 花括号冲突。
@@ -348,7 +353,7 @@ def build_linux_cli() -> None:
     env["PYINSTALLER_CONFIG_DIR"] = str(CACHE_DIR)
     command = [
         sys.executable, "-m", "PyInstaller", "--noconfirm", "--onefile", "--console",
-        "--name", "nestpack-linux-cli", "--distpath", str(ROOT / "dist"),
+        "--name", LINUX_CLI_NAME, "--distpath", str(ROOT / "dist"),
         "--workpath", str(ROOT / "build" / "linux"),
         "--specpath", str(ROOT / "build"), "--paths", str(ROOT),
     ]
@@ -358,7 +363,7 @@ def build_linux_cli() -> None:
     command.append(str(ROOT / "cli" / "__main__.py"))
     result = subprocess.run(command, cwd=ROOT, env=env)
     if result.returncode != 0:
-        sys.exit(f"Failed building nestpack-linux-cli (return code {result.returncode}).")
+        sys.exit(f"Failed building {LINUX_CLI_NAME} (return code {result.returncode}).")
 
 
 def main() -> int:
@@ -393,7 +398,7 @@ def main() -> int:
 
     if sys.platform == "linux":
         build_linux_cli()
-        print(f"已生成 {ROOT / 'dist' / 'nestpack-linux-cli'}")
+        print(f"已生成 {ROOT / 'dist' / LINUX_CLI_NAME}")
         return 0
 
     icon_path = generate_icon()
