@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    tags: [v1.1.0]
+    branches: [main]
 
 permissions:
   contents: read
@@ -50,7 +50,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: github.ref == 'refs/tags/v1.1.0'
+    if: "github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'release: NestPack 1.1.0')"
     needs: [windows, linux]
     runs-on: ubuntu-22.04
     permissions:
@@ -66,4 +66,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create v1.1.0 release-assets/NestPack-v1.1.0-windows-gui.exe release-assets/NestPack-v1.1.0-windows-cli.exe release-assets/NestPack-v1.1.0-linux-cli --verify-tag --title 'NestPack 1.1.0' --notes-file .github/release-notes/v1.1.0.md
+          gh release create v1.1.0 release-assets/NestPack-v1.1.0-windows-gui.exe release-assets/NestPack-v1.1.0-windows-cli.exe release-assets/NestPack-v1.1.0-linux-cli --target "$GITHUB_SHA" --title 'NestPack 1.1.0' --notes-file .github/release-notes/v1.1.0.md
