@@ -17,7 +17,7 @@ else:
 DEFAULT_CONFIG_PATH = SCRIPT_DIRECTORY / "nestpack_config.json"
 CONFIG_VERSION = 1
 # 工具版本号：CLI --version 输出与问题排查时对齐版本用。
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 
 # 压缩级别：auto 首层采样、后续层仅存储；整数 0-5 由各格式后端映射为工具参数。
 COMPRESSION_AUTO = "auto"

@@ -15,7 +15,7 @@ Copyright (C) 2026 codeTianZun，许可全文见 [LICENSE](LICENSE)。
 | Python 运行时 | Python Software Foundation 与贡献者；PSF 及内含组件许可 | [许可](https://docs.python.org/3/license.html)、[源码](https://www.python.org/downloads/source/) |
 | PyInstaller 引导程序 | PyInstaller 贡献者；GPL 加引导程序例外，部分文件为 Apache-2.0 | [许可及例外](https://pyinstaller.org/en/stable/license.html)、[源码](https://github.com/pyinstaller/pyinstaller) |
 
-Windows GUI 使用上述 GUI 依赖；CLI 源码只使用标准库。Windows 1.0.0
+Windows GUI 使用上述 GUI 依赖；CLI 源码只使用标准库。Windows 1.1.0
 GUI 程序使用 PySide6 6.11.2。构建时会收集实际安装依赖附带的许可原文，
 目录名标明依赖版本；项目源码的 `licenses/Qt-6.11.2/` 还保留 Qt Core、
 GUI、SVG 的开源许可、第三方版权声明及其引用的许可原文。上游来源见该

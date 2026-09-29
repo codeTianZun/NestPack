@@ -1,10 +1,10 @@
-name: Release 1.0.0
+name: Release 1.1.0
 
 on:
   pull_request:
     branches: [main]
   push:
-    tags: [v1.0.0]
+    tags: [v1.1.0]
 
 permissions:
   contents: read
@@ -50,7 +50,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: github.ref == 'refs/tags/v1.0.0'
+    if: github.ref == 'refs/tags/v1.1.0'
     needs: [windows, linux]
     runs-on: ubuntu-22.04
     permissions:
@@ -62,12 +62,8 @@ jobs:
           pattern: '*'
           path: release-assets
           merge-multiple: true
-      - name: Create checksums
-        run: |
-          cd release-assets
-          sha256sum NestPack.exe nestpack-cli.exe nestpack-linux-cli > SHA256SUMS
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create v1.0.0 release-assets/NestPack.exe release-assets/nestpack-cli.exe release-assets/nestpack-linux-cli release-assets/SHA256SUMS --verify-tag --title 'NestPack 1.0.0' --notes-file .github/release-notes/v1.0.0.md
+          gh release create v1.1.0 release-assets/NestPack.exe release-assets/nestpack-cli.exe release-assets/nestpack-linux-cli --verify-tag --title 'NestPack 1.1.0' --notes-file .github/release-notes/v1.1.0.md

@@ -2,7 +2,7 @@
 
 [返回首页](../README.md) · [图文入门](入门教程.md) · [常见问题](常见问题.md)
 
-> **当前下载状态**：公开发布页目前只有早期 v1.0.0。图文教程对应当前项目的新版界面，新版程序尚未公开发布；早期版本的界面、功能和配置结构与当前源码有差异。
+> 本页按 NestPack 1.1.0 的发布文件与界面编写。下载其他版本时请以相应版本的发布说明为准。
 
 ## 下载哪个文件
 
@@ -19,14 +19,7 @@
 
 三个程序按需下载，均自带 Python 运行时。使用 Windows 图形界面时，下载 `NestPack.exe` 即可。
 
-![GitHub 发布页的 Assets 下载文件列表](images/github-download.png)
-
-*图中展示公开 v1.0.0 的下载文件列表；具体功能和界面以所选版本的说明为准。*
-
-列表中的其他文件用途如下：
-
-- **Source code (zip) / Source code (tar.gz)**：项目源码，适合自行运行或构建程序。下载后会看到代码文件和文件夹。
-- **SHA256SUMS**：用于核对下载文件是否完整的校验值列表。
+发布页还会提供 **Source code (zip) / Source code (tar.gz)** 源码包，适合自行运行或构建程序。下载后会看到代码文件和文件夹。
 
 项目首页绿色 **Code → Download ZIP** 下载的也是源码。需要直接使用程序时，请选上表中的可执行文件。GitHub 对两类下载的区别也有[官方说明](https://docs.github.com/en/repositories/working-with-files/using-files/downloading-files-from-github)。
 
