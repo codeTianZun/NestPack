@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NestPack Linux CLI 构建入口：产出 dist/nestpack-linux-cli。
+# NestPack Linux CLI 构建入口：产出 dist/NestPack-v1.1.0-linux-cli。
 # 平台：Linux。选定 Python 解释器后调用 scripts/build.py。
 #
 # 用法（在项目根目录执行）：

@@ -1,5 +1,5 @@
 #Requires -Version 7
-# NestPack Windows 打包入口：产出 dist\NestPack.exe（GUI）与 dist\nestpack-cli.exe（CLI）。
+# NestPack Windows 打包入口：产出 dist\NestPack-v1.1.0-windows-gui.exe（GUI）与 dist\NestPack-v1.1.0-windows-cli.exe（CLI）。
 # 平台：Windows（PowerShell 7）。实际构建逻辑在 scripts\build.py，
 # 本脚本只负责选定 Python 解释器并转交参数。
 # 用法（在项目根目录执行）：
