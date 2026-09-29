@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import QSignalBlocker, Qt, Signal
+from PySide6.QtCore import QRect, QSignalBlocker, Qt, Signal
+from PySide6.QtGui import QColor, QPainter, QPaintEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
@@ -17,7 +18,7 @@ from qfluentwidgets import FluentIcon, ListWidget, PushButton, ToolButton
 
 from core.filesystem import normalize_user_path
 from core.models import COMPRESS_MODE_COMBINED, COMPRESS_MODE_SEPARATE, AppConfig
-from gui.appearance.theme import SPACE_SM
+from gui.appearance.theme import ACCENT, SPACE_SM
 from gui.config.paths import selection_directory
 from gui.views.file_dialog import pick_sources
 from gui.views.widgets import (
@@ -37,6 +38,26 @@ class SourceDropList(ListWidget):
         super().__init__()
         self.setAcceptDrops(True)
         self.setDragDropMode(ListWidget.DragDropMode.DropOnly)
+        self._empty_icon = FluentIcon.DOCUMENT.icon(color=ACCENT)
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        super().paintEvent(event)
+        if self.count():
+            return
+        painter = QPainter(self.viewport())
+        viewport = self.viewport().rect()
+        icon_size = 28
+        text_height = self.fontMetrics().height()
+        top = (viewport.height() - icon_size - 8 - text_height) // 2
+        self._empty_icon.paint(
+            painter, QRect((viewport.width() - icon_size) // 2, top, icon_size, icon_size)
+        )
+        painter.setPen(QColor("#716A80"))
+        painter.drawText(
+            QRect(0, top + icon_size + 8, viewport.width(), text_height),
+            Qt.AlignmentFlag.AlignCenter,
+            "拖入文件或文件夹",
+        )
 
     def _has_local_urls(self, event) -> bool:
         mime = event.mimeData()
@@ -89,8 +110,9 @@ class SourcePanel(SectionCard):
     def _build_list(self) -> None:
         """来源列表：单选切换编辑来源，拖放添加，行尾删除。"""
         self.source_list = SourceDropList()
+        self.source_list.setObjectName("sourceList")
         self.source_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        self.source_list.setFixedHeight(64)
+        self._fit_list_height()
         self.source_list.setToolTip(
             "可拖入文件或文件夹；分别打包时，点击来源编辑它的压缩层。"
         )
@@ -101,12 +123,13 @@ class SourcePanel(SectionCard):
         )
 
     def _fit_list_height(self) -> None:
-        """按来源数量分配空间，较多来源在列表内滚动。"""
-        height = sum(
-            self.source_list.item(index).sizeHint().height() + 2 * self.source_list.spacing()
-            for index in range(min(3, self.source_list.count()))
-        )
-        self.source_list.setFixedHeight(max(64, min(144, height + 12)))
+        """始终显示至少三行来源，更多来源在列表内滚动。"""
+        row_height = 36
+        for index in range(min(3, self.source_list.count())):
+            row_height = max(row_height, self.source_list.item(index).sizeHint().height())
+        height = 3 * (row_height + 2 * self.source_list.spacing()) + 12
+        self.source_list.setFixedHeight(height)
+        self.source_list.viewport().update()
 
     def _build_buttons(self) -> None:
         """添加与清空按钮由本面板处理，完成后发布来源变化。"""

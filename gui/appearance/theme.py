@@ -5,9 +5,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from PySide6.QtGui import QFont, QFontDatabase, QIcon
+from PySide6.QtCore import QEvent, QObject, Qt
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon
 from PySide6.QtWidgets import QApplication, QWidget
-from qfluentwidgets import Theme, setCustomStyleSheet, setTheme, setThemeColor
+from qfluentwidgets import ScrollBar, Theme, setCustomStyleSheet, setTheme, setThemeColor
 
 from gui.appearance.logo import APP_ICON_PATH
 
@@ -19,12 +20,58 @@ SPACE_MD = 12
 
 ACCENT = "#725196"
 DANGER = "#A23D59"
+SCROLLBAR_THUMB = "#BAAFC9"
+
+
+VERTICAL_SCROLLBAR_STYLE = """
+QScrollBar:vertical {
+    background: transparent;
+    border: none;
+    margin: 0;
+    width: 10px;
+}
+QScrollBar::handle:vertical {
+    background: #BAAFC9;
+    border-radius: 4px;
+    min-height: 28px;
+}
+QScrollBar::handle:vertical:hover { background: #725196; }
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0;
+    border: none;
+    background: transparent;
+}
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical { background: transparent; }
+"""
+
+
+class _FluentScrollBarStyler(QObject):
+    """让 Fluent 自绘的竖向滑块跟随应用配色。"""
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        kind = event.type()
+        if kind not in (QEvent.Type.Show, QEvent.Type.Enter, QEvent.Type.Leave):
+            return False
+        if not isinstance(watched, ScrollBar) or watched.orientation() != Qt.Orientation.Vertical:
+            return False
+        if kind == QEvent.Type.Show:
+            transparent = QColor(0, 0, 0, 0)
+            watched.setGrooveColor(transparent, transparent)
+            watched.setArrowColor(SCROLLBAR_THUMB, SCROLLBAR_THUMB)
+        color = ACCENT if kind == QEvent.Type.Enter else SCROLLBAR_THUMB
+        watched.setHandleColor(color, color)
+        return False
 
 
 def init_fluent_theme() -> None:
     """在创建控件前应用浅色主题与紫色主色。"""
     setTheme(Theme.LIGHT)
     setThemeColor(ACCENT)
+    app = QApplication.instance()
+    app.setStyleSheet(VERTICAL_SCROLLBAR_STYLE)
+    app.installEventFilter(_FluentScrollBarStyler(app))
 
 
 STYLE_SHEET = """
@@ -49,6 +96,9 @@ QLabel#success { color: #42756A; }
 QLabel#statusLabel, QLabel#outputName { font-size: 14px; font-weight: 600; }
 QScrollArea, QScrollArea > QWidget > QWidget { border: none; background: transparent; }
 QFrame#card, QFrame#layerCard { background: transparent; border: none; }
+QListWidget#sourceList {
+    background: #FFFFFF; border: 1px solid #B8A4D1; border-radius: 6px;
+}
 QPushButton#layerSelect {
     text-align: left; padding: 10px 12px; border: 1px solid #DAD2E6;
     border-left: 3px solid transparent; border-radius: 6px; background: #FFFFFF;

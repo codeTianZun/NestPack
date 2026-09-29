@@ -110,6 +110,18 @@ QFileDialog QComboBox::drop-down {
 QFileDialog QComboBox::drop-down:editable {
     border: none;
 }
+QFileDialog QLineEdit#pathEdit {
+    border: 1px solid #DAD2E6;
+    border-radius: 6px;
+    padding: 4px 8px;
+    background: #FFFFFF;
+    color: #2D3249;
+    selection-background-color: #E8DDF1;
+    selection-color: #725196;
+}
+QFileDialog QLineEdit#pathEdit:focus {
+    border-color: #725196;
+}
 QFileDialog QLineEdit#fileNameEdit {
     border: 1px solid #DAD2E6;
     border-radius: 6px;

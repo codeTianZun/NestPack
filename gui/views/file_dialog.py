@@ -2,21 +2,31 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from PySide6.QtCore import (
     QDir,
     QStandardPaths,
+    Qt,
     QUrl,
 )
+from PySide6.QtGui import QFocusEvent, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
+    QCompleter,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
+    QFileSystemModel,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
     QLineEdit,
     QListView,
     QPushButton,
+    QToolTip,
     QTreeView,
     QWidget,
 )
@@ -129,6 +139,127 @@ class _ConfigSaveDialog(QFileDialog):
         super().accept()
 
 
+class _PathEdit(QLineEdit):
+    """显示当前目录，点击后输入路径并导航或定位文件。"""
+
+    def __init__(self, dialog: QFileDialog) -> None:
+        super().__init__(dialog)
+        self._dialog = dialog
+        self.setObjectName("pathEdit")
+        self.setAccessibleName("当前路径")
+        self.setToolTip("点击编辑路径，按回车跳转")
+        self.setReadOnly(True)
+
+        model = QFileSystemModel(self)
+        model.setRootPath("")
+        completer = QCompleter(model, self)
+        completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+        completer.activated[str].connect(self._complete_path)
+        self.setCompleter(completer)
+
+        file_model = dialog.findChild(QFileSystemModel, "qt_filesystem_model")
+        if file_model is not None:
+            file_model.rootPathChanged.connect(self._sync_path)
+        dialog.directoryEntered.connect(self._sync_path)
+        self._sync_path()
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        was_read_only = self.isReadOnly()
+        if was_read_only:
+            self.setReadOnly(False)
+        super().mousePressEvent(event)
+        if was_read_only:
+            self.selectAll()
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() == Qt.Key.Key_Escape and not self.isReadOnly():
+            self._finish_edit()
+            event.accept()
+            return
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if self.isReadOnly():
+                self.setReadOnly(False)
+                self.selectAll()
+            elif self.completer() is not None and self.completer().popup().isVisible():
+                completer = self.completer()
+                index = completer.popup().currentIndex()
+                if index.isValid():
+                    self.setText(completer.pathFromIndex(index))
+                completer.popup().hide()
+                self._navigate()
+            else:
+                self._navigate()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def focusOutEvent(self, event: QFocusEvent) -> None:
+        if not self.isReadOnly() and event.reason() != Qt.FocusReason.PopupFocusReason:
+            self.setReadOnly(True)
+            self._sync_path()
+        super().focusOutEvent(event)
+
+    def _sync_path(self, *_args: object) -> None:
+        if self.isReadOnly():
+            self.setText(QDir.toNativeSeparators(self._dialog.directory().absolutePath()))
+
+    def _finish_edit(self) -> None:
+        self.setReadOnly(True)
+        self._sync_path()
+        self.clearFocus()
+
+    def _complete_path(self, path: str) -> None:
+        self.setText(path)
+        self._navigate()
+
+    def _navigate(self) -> None:
+        raw = self.text().strip().strip('"')
+        if not raw:
+            self._finish_edit()
+            return
+        expanded = os.path.expandvars(os.path.expanduser(raw))
+        path = Path(expanded)
+        if not path.is_absolute():
+            path = Path(self._dialog.directory().absolutePath()) / path
+        path = Path(os.path.normpath(path))
+
+        if path.is_dir():
+            self.setReadOnly(True)
+            self._dialog.setDirectory(str(path))
+        elif path.is_file() and not self._dialog.testOption(QFileDialog.Option.ShowDirsOnly):
+            self.setReadOnly(True)
+            self._dialog.selectFile(str(path))
+        elif (self._dialog.acceptMode() == QFileDialog.AcceptMode.AcceptSave
+              and path.parent.is_dir() and path.name):
+            self.setReadOnly(True)
+            self._dialog.selectFile(str(path))
+        else:
+            QToolTip.showText(
+                self.mapToGlobal(self.rect().bottomLeft()), "路径不存在或不可选择", self,
+            )
+            return
+        self._sync_path()
+        self.clearFocus()
+
+
+def _install_path_edit(dialog: QFileDialog) -> None:
+    """用地址栏替换可见的查找范围下拉框，保留 Qt 的内部导航控件。"""
+    look_in = dialog.findChild(QComboBox, "lookInCombo")
+    grid = dialog.layout()
+    if look_in is None or not isinstance(grid, QGridLayout):
+        return
+    top_item = grid.itemAtPosition(0, 1)
+    top_layout = top_item.layout() if top_item is not None else None
+    if not isinstance(top_layout, QHBoxLayout):
+        return
+    edit = _PathEdit(dialog)
+    top_layout.insertWidget(0, edit, 1)
+    look_in.hide()
+    label = dialog.findChild(QLabel, "lookInLabel")
+    if label is not None:
+        label.setBuddy(edit)
+
+
 def _system_shortcut_urls() -> list[QUrl]:
     """收集桌面/下载/文档/主目录等系统快捷位置的 URL。"""
     locations = [
@@ -186,6 +317,7 @@ def _prepare_dialog(
         dialog, tip=tip, accept_text=accept_text,
         size=load_file_dialog_size() or (720, 460),
     )
+    _install_path_edit(dialog)
     initial_size = dialog.size()
 
     def remember_size(_result: int) -> None:

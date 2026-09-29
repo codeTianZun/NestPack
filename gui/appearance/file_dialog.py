@@ -46,7 +46,7 @@ _TOOLBAR_ACTIONS = {
 def _relabel_dialog(dialog: QFileDialog, accept_text: str) -> None:
     """改 QFileDialog 各内置 label 为中文，并给确认按钮打主样式标记。"""
     dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-    dialog.setLabelText(QFileDialog.DialogLabel.LookIn, "查找范围")
+    dialog.setLabelText(QFileDialog.DialogLabel.LookIn, "地址")
     dialog.setLabelText(QFileDialog.DialogLabel.FileName, "文件名")
     dialog.setLabelText(QFileDialog.DialogLabel.FileType, "文件类型")
     dialog.setLabelText(QFileDialog.DialogLabel.Accept, accept_text)
@@ -110,7 +110,7 @@ class _NavigationAppearance(QObject):
 
 
 def _localize_sidebar(dialog: QFileDialog) -> None:
-    """统一侧栏与查找范围里的位置名称、图标和完整路径提示。"""
+    """统一侧栏与导航模型里的位置名称、图标和完整路径提示。"""
     sidebar = dialog.findChild(QListView, "sidebar")
     if sidebar is not None:
         _NavigationAppearance(sidebar.model())

@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Literal
 
-from PySide6.QtCore import QObject, QTimer, QUrl, Slot
+from PySide6.QtCore import QLibraryInfo, QObject, QTimer, QTranslator, QUrl, Slot
 from PySide6.QtGui import QCloseEvent, QDesktopServices
 from PySide6.QtWidgets import QApplication
 
@@ -414,6 +414,11 @@ def main() -> int:
         app = QApplication(sys.argv)
         app.setApplicationName(APP_NAME)
         app.setOrganizationName("Local Tools")
+        translator = QTranslator(app)
+        translations_path = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+        if not translator.load("qtbase_zh_CN", translations_path):
+            raise RuntimeError("无法加载 Qt 简体中文翻译")
+        app.installTranslator(translator)
         init_fluent_theme()
         app.setWindowIcon(create_app_icon())
         app.setQuitOnLastWindowClosed(True)
