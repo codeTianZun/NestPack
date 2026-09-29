@@ -3,7 +3,7 @@
 ## 入口与调用
 
 源码在项目根运行 `python -m cli`（Linux 为 `python3`）；Windows 发布程序
-使用 `nestpack-cli.exe`，Linux 发布程序使用 `nestpack-linux-cli`。
+使用 `NestPack-v1.1.0-windows-cli.exe`，Linux 发布程序使用 `NestPack-v1.1.0-linux-cli`。
 Linux 源码也可从任意目录调用 `platforms/linux/launcher.sh`，
 它保持调用目录，参数相对路径按该目录解析。
 
